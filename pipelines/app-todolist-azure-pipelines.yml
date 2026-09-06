@@ -1,0 +1,31 @@
+# Azure Pipelines - Todo List (Flask)
+# Repo: https://github.com/a7medayman6/Todo-List-Dockerized-Flask-WebApp
+# Default branch is "master", not "main".
+trigger:
+  branches:
+    include: [master]
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  - group: empapp-shared-vars
+  - name: imageRepository
+    value: 'todo-list-app'
+  - name: dockerfilePath
+    value: '$(Build.SourcesDirectory)/Dockerfile'
+  - name: tag
+    value: '$(Build.BuildId)'
+
+steps:
+  - task: Docker@2
+    displayName: 'Build and push todo-list image to ACR'
+    inputs:
+      command: buildAndPush
+      repository: '$(imageRepository)'
+      dockerfile: '$(dockerfilePath)'
+      buildContext: '$(Build.SourcesDirectory)'
+      containerRegistry: '$(acrServiceConnection)'
+      tags: |
+        $(tag)
+        latest

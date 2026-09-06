@@ -1,0 +1,39 @@
+# Azure Pipelines - (re)deploy the backend image to Azure Container Instances.
+#
+# This is a separate pipeline from infra-terraform because the backend image
+# tag changes every time app-backend-azure-pipelines.yml builds a new image,
+# and because WHITELIST_URLS (the CORS allow-list) needs updating once the
+# real ingress public IP is known (chicken-and-egg with step 3 - see
+# docs/RUNBOOK.md). Runs on ubuntu-latest: az container commands are ARM
+# calls, no VNet access required.
+trigger: none   # triggered manually, or chained after the backend image pipeline - see docs/RUNBOOK.md
+
+parameters:
+  - name: imageTag
+    type: string
+    default: 'latest'
+  - name: frontendOrigin
+    displayName: 'Ingress public origin, e.g. http://20.198.1.2 (no trailing slash)'
+    type: string
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  - group: empapp-shared-vars
+  - name: resourceGroup
+    value: 'rg-empapp-centralindia'
+  - name: containerGroupName
+    value: 'aci-empapp-backend'
+
+steps:
+  - task: AzureCLI@2
+    displayName: 'Update ACI env vars and restart the container group'
+    inputs:
+      azureSubscription: '$(armServiceConnection)'
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        set -e
+        az container restart --resource-group $(resourceGroup) --name $(containerGroupName)
+        echo "Restarted $(containerGroupName). To change the image tag or WHITELIST_URLS, update the corresponding Terraform variables (image_tag on module.aci_backend / frontend_origin) and re-run the infra-terraform pipeline instead - azurerm_container_group is fully managed by Terraform, so hand-editing it here would drift on the next apply."

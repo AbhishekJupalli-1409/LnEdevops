@@ -1,0 +1,56 @@
+# Azure Pipelines - deploy ingress-nginx to AKS via Helm.
+#
+# MUST run on the private agent pool (empapp-private-pool, the VM created by
+# terraform/modules/agent-vm) - the AKS API server is private and a
+# Microsoft-hosted agent cannot route to it.
+trigger:
+  branches:
+    include: [main]
+  paths:
+    include: [helm/**, pipelines/ingress-nginx-helm-azure-pipelines.yml]
+
+pool:
+  name: 'empapp-private-pool'
+
+variables:
+  - group: empapp-shared-vars
+  - name: aksResourceGroup
+    value: 'rg-empapp-centralindia'
+  - name: aksClusterName
+    value: 'aks-empapp-cin'
+
+steps:
+  - task: AzureCLI@2
+    displayName: 'Get AKS credentials (private cluster - only reachable from inside the VNet)'
+    inputs:
+      azureSubscription: '$(armServiceConnection)'
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        set -e
+        az aks get-credentials \
+          --resource-group $(aksResourceGroup) \
+          --name $(aksClusterName) \
+          --overwrite-existing
+
+  - script: |
+      set -e
+      helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+      helm repo update
+      kubectl create namespace ingress-nginx --dry-run=client -o yaml | kubectl apply -f -
+      helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+        --namespace ingress-nginx \
+        -f $(Build.SourcesDirectory)/helm/nginx-ingress-values.yaml \
+        --wait --timeout 10m
+    displayName: 'helm upgrade --install ingress-nginx'
+
+  - script: |
+      set -e
+      echo "Waiting for the LoadBalancer to get a public IP..."
+      for i in $(seq 1 30); do
+        IP=$(kubectl get svc ingress-nginx-controller -n ingress-nginx -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+        if [ -n "$IP" ]; then echo "Ingress public IP: $IP"; echo "##vso[task.setvariable variable=ingressPublicIp;isOutput=true]$IP"; break; fi
+        sleep 10
+      done
+    name: getIngressIp
+    displayName: 'Read ingress-nginx public IP'

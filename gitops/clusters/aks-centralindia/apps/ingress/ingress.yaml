@@ -1,0 +1,47 @@
+# Path-based routing on the single ingress-nginx public IP:
+#   /emp    -> frontend-service   (Employee app, React SPA)
+#   /to-do  -> todolist-service   (Todo List, Flask)
+#
+# KNOWN CAVEAT - single-page apps under a subpath: both apps were built to
+# be served from "/", so their compiled asset references (e.g. React's
+# /static/js/main.js, Flask's url_for('static', ...)) are NOT prefix-aware.
+# The rewrite-target below makes the *page* work at /emp and /to-do; the
+# extra "/static" rule below catches the React build's absolute asset paths.
+# For a fully correct production setup, rebuild the frontend with
+# PUBLIC_URL=/emp (Create React App honours this at build time) and add
+# ProxyFix/APPLICATION_ROOT handling to the Flask app for /to-do - see
+# docs/RUNBOOK.md.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: apps-ingress
+  namespace: apps
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /emp(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: frontend-service
+                port:
+                  number: 80
+          - path: /to-do(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: todolist-service
+                port:
+                  number: 80
+          - path: /static
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend-service
+                port:
+                  number: 80

@@ -1,0 +1,64 @@
+# Azure Pipelines - bootstrap Flux on AKS and deploy the frontend + Todo List
+# apps via GitOps (reconciling gitops/clusters/aks-centralindia from this repo).
+#
+# MUST run on the private agent pool - same reason as the ingress pipeline.
+trigger:
+  branches:
+    include: [main]
+  paths:
+    include: [gitops/**]
+
+pool:
+  name: 'empapp-private-pool'
+
+variables:
+  - group: empapp-shared-vars
+  - name: aksResourceGroup
+    value: 'rg-empapp-centralindia'
+  - name: aksClusterName
+    value: 'aks-empapp-cin'
+  - name: fluxNamespace
+    value: 'flux-system'
+  # Set as a secret pipeline variable: githubToken (repo scope) - Flux uses it
+  # to pull this (presumably private) platform repo.
+  # Also set: aciBackendPrivateIp (from `terraform output aci_backend_private_ip`)
+
+steps:
+  - task: AzureCLI@2
+    displayName: 'Get AKS credentials'
+    inputs:
+      azureSubscription: '$(armServiceConnection)'
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        az aks get-credentials --resource-group $(aksResourceGroup) --name $(aksClusterName) --overwrite-existing
+
+  - script: |
+      set -e
+      flux check --pre
+      flux bootstrap github \
+        --owner=$(githubOrg) \
+        --repository=$(platformRepoName) \
+        --branch=main \
+        --path=gitops/clusters/aks-centralindia \
+        --token-auth \
+        --personal
+    displayName: 'flux bootstrap github'
+    env:
+      GITHUB_TOKEN: $(githubToken)
+
+  - script: |
+      set -e
+      kubectl create namespace apps --dry-run=client -o yaml | kubectl apply -f -
+      kubectl -n flux-system create configmap cluster-vars \
+        --from-literal=ACR_LOGIN_SERVER=$(acrLoginServer) \
+        --from-literal=BACKEND_PRIVATE_IP=$(aciBackendPrivateIp) \
+        --from-literal=BACKEND_PORT=8000 \
+        --dry-run=client -o yaml | kubectl apply -f -
+    displayName: 'Write cluster-vars ConfigMap (substituted into gitops manifests by Flux)'
+
+  - script: |
+      set -e
+      flux reconcile source git flux-system
+      flux reconcile kustomization apps --with-source
+    displayName: 'Force an immediate reconcile'

@@ -1,0 +1,107 @@
+# Azure Pipelines - Terraform infra (policy, network, ACR, AKS, ACI,
+# PostgreSQL, Key Vault, private agent VM). Runs on ubuntu-latest: every
+# resource here is created via ARM, so this pipeline never needs to reach
+# into the private VNet directly.
+#
+# Prerequisite: terraform/bootstrap has already been applied once (manually,
+# with local state) to create the state storage account - see its own header
+# comment and docs/RUNBOOK.md step 0.
+trigger:
+  branches:
+    include: [main]
+  paths:
+    include: [terraform/**]
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  - group: empapp-shared-vars
+  - name: tfWorkingDir
+    value: '$(Build.SourcesDirectory)/terraform/envs/centralindia'
+  - name: tfVersion
+    value: '1.9.5'
+  # Set these three as pipeline variables (Library > Variable groups, or
+  # directly on the pipeline) - they come from `terraform output` in
+  # terraform/bootstrap and are NOT committed to git.
+  # tfStateResourceGroup, tfStateStorageAccount, tfStateContainer
+
+steps:
+  - task: AzureCLI@2
+    displayName: 'terraform init & validate'
+    inputs:
+      azureSubscription: '$(armServiceConnection)'
+      scriptType: bash
+      scriptLocation: inlineScript
+      addSpnToEnvironment: true
+      inlineScript: |
+        set -e
+        curl -fsSL -o tf.zip "https://releases.hashicorp.com/terraform/$(tfVersion)/terraform_$(tfVersion)_linux_amd64.zip"
+        unzip -o tf.zip && sudo mv terraform /usr/local/bin/
+        export ARM_CLIENT_ID=$servicePrincipalId
+        export ARM_CLIENT_SECRET=$servicePrincipalKey
+        export ARM_TENANT_ID=$tenantId
+        export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+        cd $(tfWorkingDir)
+        terraform init \
+          -backend-config="resource_group_name=$(tfStateResourceGroup)" \
+          -backend-config="storage_account_name=$(tfStateStorageAccount)" \
+          -backend-config="container_name=$(tfStateContainer)" \
+          -backend-config="key=centralindia.terraform.tfstate"
+        terraform validate
+
+  - task: AzureCLI@2
+    displayName: 'terraform plan'
+    inputs:
+      azureSubscription: '$(armServiceConnection)'
+      scriptType: bash
+      scriptLocation: inlineScript
+      addSpnToEnvironment: true
+      inlineScript: |
+        set -e
+        export ARM_CLIENT_ID=$servicePrincipalId
+        export ARM_CLIENT_SECRET=$servicePrincipalKey
+        export ARM_TENANT_ID=$tenantId
+        export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+        cd $(tfWorkingDir)
+        terraform plan -var-file=terraform.tfvars -out=tfplan
+
+  - publish: '$(tfWorkingDir)/tfplan'
+    artifact: tfplan
+
+  - deployment: apply
+    displayName: 'terraform apply (manual approval)'
+    environment: 'empapp-infra-production'   # add an approval check on this Environment in Azure DevOps > Pipelines > Environments
+    pool:
+      vmImage: 'ubuntu-latest'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - download: current
+              artifact: tfplan
+            - task: AzureCLI@2
+              displayName: 'terraform apply'
+              inputs:
+                azureSubscription: '$(armServiceConnection)'
+                scriptType: bash
+                scriptLocation: inlineScript
+                addSpnToEnvironment: true
+                inlineScript: |
+                  set -e
+                  curl -fsSL -o tf.zip "https://releases.hashicorp.com/terraform/$(tfVersion)/terraform_$(tfVersion)_linux_amd64.zip"
+                  unzip -o tf.zip && sudo mv terraform /usr/local/bin/
+                  export ARM_CLIENT_ID=$servicePrincipalId
+                  export ARM_CLIENT_SECRET=$servicePrincipalKey
+                  export ARM_TENANT_ID=$tenantId
+                  export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+                  cd $(tfWorkingDir)
+                  terraform init \
+                    -backend-config="resource_group_name=$(tfStateResourceGroup)" \
+                    -backend-config="storage_account_name=$(tfStateStorageAccount)" \
+                    -backend-config="container_name=$(tfStateContainer)" \
+                    -backend-config="key=centralindia.terraform.tfstate"
+                  terraform apply -auto-approve "$(Pipeline.Workspace)/tfplan/tfplan"
+                  terraform output -json > tf-outputs.json
+            - publish: '$(tfWorkingDir)/tf-outputs.json'
+              artifact: tf-outputs
