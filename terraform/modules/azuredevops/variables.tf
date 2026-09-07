@@ -3,16 +3,9 @@
 # - that is the one manual, one-time step called out in the README - but it
 # creates everything inside it: the project, service connections, variable
 # group and pipeline (build) definitions.
-
-variable "org_service_url" {
-  description = "e.g. https://dev.azure.com/your-org"
-  type        = string
-}
-variable "personal_access_token" {
-  description = "PAT with Project & Team, Service Connections and Build permissions. Pass via TF_VAR / pipeline secret, never commit it."
-  type        = string
-  sensitive   = true
-}
+#
+# The azuredevops provider is configured by the caller, not this module.
+# Nested provider blocks would make this a legacy module and forbid count.
 
 variable "project_name" {
   type    = string

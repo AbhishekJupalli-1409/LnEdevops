@@ -24,7 +24,7 @@ azdo_agent_pool_name       = "empapp-private-pool"
 
 # --- Optional: also let Terraform manage the Azure DevOps project/pipelines/
 # service connections (module.azuredevops) ----------------------------------
-manage_azure_devops = false
+manage_azure_devops = true
 # azdo_github_org                    = "your-github-org-or-user"
 # azdo_github_service_connection_pat = ""
 # azdo_sp_client_id                  = ""

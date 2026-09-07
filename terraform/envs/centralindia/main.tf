@@ -150,8 +150,10 @@ module "azuredevops" {
   count  = var.manage_azure_devops ? 1 : 0
   source = "../../modules/azuredevops"
 
-  org_service_url               = var.azdo_org_service_url
-  personal_access_token         = var.azdo_personal_access_token
+  providers = {
+    azuredevops = azuredevops
+  }
+
   subscription_id               = var.subscription_id
   subscription_name             = var.azdo_subscription_name
   tenant_id                     = var.azdo_tenant_id

@@ -61,10 +61,12 @@ resource "azurerm_key_vault_secret" "postgres_connection_string" {
   depends_on   = [azurerm_role_assignment.deployer_secrets_officer]
 }
 
+# Keys are not secret; values are. Terraform forbids a sensitive map as
+# for_each because instance keys would leak, so iterate the keys only.
 resource "azurerm_key_vault_secret" "extra" {
-  for_each     = var.extra_secrets
+  for_each     = nonsensitive(toset(keys(var.extra_secrets)))
   name         = each.key
-  value        = each.value
+  value        = var.extra_secrets[each.key]
   key_vault_id = azurerm_key_vault.this.id
   depends_on   = [azurerm_role_assignment.deployer_secrets_officer]
 }

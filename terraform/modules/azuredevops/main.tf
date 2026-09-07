@@ -7,11 +7,6 @@ terraform {
   }
 }
 
-provider "azuredevops" {
-  org_service_url       = var.org_service_url
-  personal_access_token = var.personal_access_token
-}
-
 resource "azuredevops_project" "this" {
   name               = var.project_name
   description        = "Employee app (React + Node) and Todo List platform - infra, images, GitOps."
