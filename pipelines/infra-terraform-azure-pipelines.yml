@@ -48,8 +48,14 @@ stages:
               addSpnToEnvironment: true
               inlineScript: |
                 set -e
-                curl -fsSL -o tf.zip "https://releases.hashicorp.com/terraform/$(tfVersion)/terraform_$(tfVersion)_linux_amd64.zip"
-                unzip -o tf.zip && sudo mv terraform /usr/local/bin/
+                # Unzip into a temp dir — the repo already has a terraform/ folder,
+                # so extracting a binary named "terraform" in the workspace fails.
+                TF_TMP=$(mktemp -d)
+                curl -fsSL -o "$TF_TMP/tf.zip" "https://releases.hashicorp.com/terraform/$(tfVersion)/terraform_$(tfVersion)_linux_amd64.zip"
+                unzip -o "$TF_TMP/tf.zip" -d "$TF_TMP"
+                sudo install -m 755 "$TF_TMP/terraform" /usr/local/bin/terraform
+                rm -rf "$TF_TMP"
+                terraform version
                 export ARM_CLIENT_ID=$servicePrincipalId
                 export ARM_CLIENT_SECRET=$servicePrincipalKey
                 export ARM_TENANT_ID=$tenantId
@@ -107,8 +113,12 @@ stages:
                     addSpnToEnvironment: true
                     inlineScript: |
                       set -e
-                      curl -fsSL -o tf.zip "https://releases.hashicorp.com/terraform/$(tfVersion)/terraform_$(tfVersion)_linux_amd64.zip"
-                      unzip -o tf.zip && sudo mv terraform /usr/local/bin/
+                      TF_TMP=$(mktemp -d)
+                      curl -fsSL -o "$TF_TMP/tf.zip" "https://releases.hashicorp.com/terraform/$(tfVersion)/terraform_$(tfVersion)_linux_amd64.zip"
+                      unzip -o "$TF_TMP/tf.zip" -d "$TF_TMP"
+                      sudo install -m 755 "$TF_TMP/terraform" /usr/local/bin/terraform
+                      rm -rf "$TF_TMP"
+                      terraform version
                       export ARM_CLIENT_ID=$servicePrincipalId
                       export ARM_CLIENT_SECRET=$servicePrincipalKey
                       export ARM_TENANT_ID=$tenantId
