@@ -19,12 +19,12 @@ frontend_origin = "http://REPLACE-WITH-INGRESS-PUBLIC-IP"
 # against a private AKS API server. Create the org manually first (the one
 # allowed manual step), then a PAT with "Agent Pools (read & manage)" scope.
 azdo_org_service_url       = "https://dev.azure.com/jupalliabhishek1409"
-azdo_personal_access_token = "" # export TF_VAR_azdo_personal_access_token instead of committing this
+azdo_personal_access_token = "" # never commit a PAT; set TF_VAR_azdo_personal_access_token or pipeline secret azdoPersonalAccessToken
 azdo_agent_pool_name       = "empapp-private-pool"
 
 # --- Optional: also let Terraform manage the Azure DevOps project/pipelines/
 # service connections (module.azuredevops) ----------------------------------
-manage_azure_devops = true
+manage_azure_devops = false
 # azdo_github_org                    = "your-github-org-or-user"
 # azdo_github_service_connection_pat = ""
 # azdo_sp_client_id                  = ""

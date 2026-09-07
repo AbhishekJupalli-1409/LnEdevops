@@ -23,6 +23,8 @@ parameters:
     default: 'empapp-arm'   # <-- change to your real connection name
 
 variables:
+  - name: azdoPersonalAccessToken
+    value: ''   # overridden by empapp-shared-vars when that secret exists
   - group: empapp-shared-vars
   - name: tfWorkingDir
     value: '$(Build.SourcesDirectory)/terraform/envs/centralindia'
@@ -30,6 +32,9 @@ variables:
     value: '1.9.5'
   # Still required in empapp-shared-vars (from terraform/bootstrap outputs):
   # tfStateResourceGroup, tfStateStorageAccount, tfStateContainer
+  # Also set secret azdoPersonalAccessToken (Azure DevOps PAT). The ARM
+  # service connection cannot authenticate to dev.azure.com. Needed for
+  # the azuredevops provider and for the private agent VM to register.
 
 stages:
   - stage: Plan
@@ -41,6 +46,9 @@ stages:
         steps:
           - task: AzureCLI@2
             displayName: 'terraform init & validate'
+            env:
+              SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+              AZDO_PAT: $(azdoPersonalAccessToken)
             inputs:
               azureSubscription: ${{ parameters.azureServiceConnection }}
               scriptType: bash
@@ -60,6 +68,17 @@ stages:
                 export ARM_CLIENT_SECRET=$servicePrincipalKey
                 export ARM_TENANT_ID=$tenantId
                 export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+                # azuredevops provider does not use the ARM service connection.
+                if [ -n "${AZDO_PAT:-}" ]; then
+                  export AZDO_PERSONAL_ACCESS_TOKEN="$AZDO_PAT"
+                  export TF_VAR_azdo_personal_access_token="$AZDO_PAT"
+                elif [ -n "${SYSTEM_ACCESSTOKEN:-}" ]; then
+                  export AZDO_PERSONAL_ACCESS_TOKEN="$SYSTEM_ACCESSTOKEN"
+                else
+                  export AZDO_CLIENT_ID=$servicePrincipalId
+                  export AZDO_CLIENT_SECRET=$servicePrincipalKey
+                  export AZDO_TENANT_ID=$tenantId
+                fi
                 cd $(tfWorkingDir)
                 terraform init \
                   -backend-config="resource_group_name=$(tfStateResourceGroup)" \
@@ -70,6 +89,9 @@ stages:
 
           - task: AzureCLI@2
             displayName: 'terraform plan'
+            env:
+              SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+              AZDO_PAT: $(azdoPersonalAccessToken)
             inputs:
               azureSubscription: ${{ parameters.azureServiceConnection }}
               scriptType: bash
@@ -81,6 +103,16 @@ stages:
                 export ARM_CLIENT_SECRET=$servicePrincipalKey
                 export ARM_TENANT_ID=$tenantId
                 export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+                if [ -n "${AZDO_PAT:-}" ]; then
+                  export AZDO_PERSONAL_ACCESS_TOKEN="$AZDO_PAT"
+                  export TF_VAR_azdo_personal_access_token="$AZDO_PAT"
+                elif [ -n "${SYSTEM_ACCESSTOKEN:-}" ]; then
+                  export AZDO_PERSONAL_ACCESS_TOKEN="$SYSTEM_ACCESSTOKEN"
+                else
+                  export AZDO_CLIENT_ID=$servicePrincipalId
+                  export AZDO_CLIENT_SECRET=$servicePrincipalKey
+                  export AZDO_TENANT_ID=$tenantId
+                fi
                 cd $(tfWorkingDir)
                 terraform plan -var-file=terraform.tfvars -out=tfplan
 
@@ -106,6 +138,9 @@ stages:
                   artifact: tfplan
                 - task: AzureCLI@2
                   displayName: 'terraform apply'
+                  env:
+                    SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+                    AZDO_PAT: $(azdoPersonalAccessToken)
                   inputs:
                     azureSubscription: ${{ parameters.azureServiceConnection }}
                     scriptType: bash
@@ -123,6 +158,16 @@ stages:
                       export ARM_CLIENT_SECRET=$servicePrincipalKey
                       export ARM_TENANT_ID=$tenantId
                       export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+                      if [ -n "${AZDO_PAT:-}" ]; then
+                        export AZDO_PERSONAL_ACCESS_TOKEN="$AZDO_PAT"
+                        export TF_VAR_azdo_personal_access_token="$AZDO_PAT"
+                      elif [ -n "${SYSTEM_ACCESSTOKEN:-}" ]; then
+                        export AZDO_PERSONAL_ACCESS_TOKEN="$SYSTEM_ACCESSTOKEN"
+                      else
+                        export AZDO_CLIENT_ID=$servicePrincipalId
+                        export AZDO_CLIENT_SECRET=$servicePrincipalKey
+                        export AZDO_TENANT_ID=$tenantId
+                      fi
                       cd $(tfWorkingDir)
                       terraform init \
                         -backend-config="resource_group_name=$(tfStateResourceGroup)" \

@@ -35,9 +35,12 @@ provider "azurerm" {
 }
 
 # Configured at the root so module.azuredevops can use count.
-# Placeholders keep terraform validate/plan working when
-# manage_azure_devops is false and the PAT is not set.
+# Terraform initializes this provider on every plan/apply, even when
+# manage_azure_devops is false. It talks to Azure DevOps with a PAT (or
+# AZDO_PERSONAL_ACCESS_TOKEN / the pipeline OAuth token) — the Azure RM
+# service connection is not used here.
+# An empty PAT in terraform.tfvars is left unset so the env var can be used.
 provider "azuredevops" {
-  org_service_url       = coalesce(var.azdo_org_service_url, "https://dev.azure.com/placeholder")
-  personal_access_token = coalesce(var.azdo_personal_access_token, "placeholder")
+  org_service_url       = var.azdo_org_service_url
+  personal_access_token = var.azdo_personal_access_token == "" ? null : var.azdo_personal_access_token
 }
