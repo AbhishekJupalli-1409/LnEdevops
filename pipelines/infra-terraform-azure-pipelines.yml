@@ -12,15 +12,23 @@ trigger:
   paths:
     include: [terraform/**]
 
+# Service connections are validated at COMPILE time. A runtime macro like
+# $(armServiceConnection) from a variable group often does not expand, which
+# produces: "service connection $(armServiceConnection) which could not be found".
+# Set this to the EXACT name under Project settings > Service connections.
+parameters:
+  - name: azureServiceConnection
+    displayName: 'Azure Resource Manager service connection name'
+    type: string
+    default: 'empapp-arm'   # <-- change to your real connection name
+
 variables:
   - group: empapp-shared-vars
   - name: tfWorkingDir
     value: '$(Build.SourcesDirectory)/terraform/envs/centralindia'
   - name: tfVersion
     value: '1.9.5'
-  # Set these three as pipeline variables (Library > Variable groups, or
-  # directly on the pipeline) - they come from `terraform output` in
-  # terraform/bootstrap and are NOT committed to git.
+  # Still required in empapp-shared-vars (from terraform/bootstrap outputs):
   # tfStateResourceGroup, tfStateStorageAccount, tfStateContainer
 
 stages:
@@ -34,7 +42,7 @@ stages:
           - task: AzureCLI@2
             displayName: 'terraform init & validate'
             inputs:
-              azureSubscription: '$(armServiceConnection)'
+              azureSubscription: ${{ parameters.azureServiceConnection }}
               scriptType: bash
               scriptLocation: inlineScript
               addSpnToEnvironment: true
@@ -57,7 +65,7 @@ stages:
           - task: AzureCLI@2
             displayName: 'terraform plan'
             inputs:
-              azureSubscription: '$(armServiceConnection)'
+              azureSubscription: ${{ parameters.azureServiceConnection }}
               scriptType: bash
               scriptLocation: inlineScript
               addSpnToEnvironment: true
@@ -93,7 +101,7 @@ stages:
                 - task: AzureCLI@2
                   displayName: 'terraform apply'
                   inputs:
-                    azureSubscription: '$(armServiceConnection)'
+                    azureSubscription: ${{ parameters.azureServiceConnection }}
                     scriptType: bash
                     scriptLocation: inlineScript
                     addSpnToEnvironment: true
