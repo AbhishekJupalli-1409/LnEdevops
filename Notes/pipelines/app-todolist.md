@@ -2,23 +2,29 @@
 
 **File:** `pipelines/app-todolist-azure-pipelines.yml`
 
-## Brief introduction
+## Introduction
 
-CI for the Flask Todo List app: build and push `todo-list-app` to ACR (often from `master` in the Flask sample repo).
+CI for the Flask **Todo List** app. Builds/pushes `todo-list-app` to ACR (often from the sample Flask repo’s `master` branch).
 
-## Why we create it
+## Why we use it
 
-Todolist Deployment on AKS needs fresh images in ACR for Flux to roll out.
+Second user-facing app on the same cluster and ingress IP needs its own image lifecycle. Sharing one giant image with the employee app would couple unrelated release cycles.
 
-## How it works
+## Real-life example
 
-- Pool: `ubuntu-latest`
-- Docker build/push to ACR
+A second shop in the same mall manufactures its own products (Flask images) but shares the mall entrance (ingress) and warehouse company (ACR).
 
-## Use in this project
+## Connections
 
-Feeds `gitops/.../apps/todolist/deployment.yaml`.
+```
+Flask source --> pipeline --> ACR (todo-list-app)
+  --> Flux Deployment todolist
+        --> Service todolist-service
+              --> Ingress paths /to-do and /static
 
-## Example to understand
+Independent of ACI/Postgres (employee stack).
+```
 
-Second storefront app on the same mall (AKS) — own image, own path `/to-do`.
+## In this project
+
+Feeds `gitops/.../apps/todolist/*`.

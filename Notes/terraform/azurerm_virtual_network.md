@@ -1,14 +1,42 @@
 # azurerm_virtual_network
 
-## Brief introduction
+## Introduction
 
-A **VNet** is your private network in Azure (like an on-prem network). Subnets, NICs, private endpoints, and many PaaS integrations attach to it.
+An Azure **Virtual Network (VNet)** is your private IP address space in Azure — equivalent to a corporate LAN in the cloud. Subnets, NICs, private endpoints, and many PaaS private integrations attach to it. Resources in the same VNet (with NSG allow) can talk privately without traversing the public internet.
 
-## Why we create it
+## Why we use it
 
-All private communication (AKS ↔ ACI ↔ Postgres ↔ agent ↔ Key Vault PE) needs one shared address space.
+The whole security story of this project depends on private paths:
+
+- Frontend → backend  
+- Backend → Postgres  
+- Agent → AKS API  
+- Clients → Key Vault via Private Endpoint  
+
+Without a VNet, those become public endpoints or impossible.
+
+## Real-life example
+
+A **company campus network**.
+
+Buildings (subnets) share the campus backbone (VNet). Employees walk internal corridors (private IPs). The public street is outside the fence. Guests only enter through the lobby (ingress), not into the records room (database).
+
+## Connections in this project
+
+```
+VNet
+ ├── snet-aks        --> AKS nodes, ingress controller, app pods
+ ├── snet-aci        --> ACI backend (+ NSG allow from AKS only)
+ ├── snet-postgres   --> Flexible Server (delegated)
+ ├── snet-pe         --> Key Vault Private Endpoint
+ └── snet-agent      --> Agent VM (+ NAT Gateway association)
+
+Private DNS zones --link--> this VNet
+```
 
 ## How Terraform creates it
+
+`terraform/modules/networking/main.tf`:
 
 ```hcl
 resource "azurerm_virtual_network" "this" {
@@ -16,16 +44,9 @@ resource "azurerm_virtual_network" "this" {
   address_space       = [var.vnet_address_space]
   location            = var.location
   resource_group_name = var.resource_group_name
-  tags                = var.tags
 }
 ```
 
-Module: `terraform/modules/networking`.
+## In this project
 
-## Use in this project
-
-Backbone for AKS, ACI, Postgres, PE, and agent subnets.
-
-## Example to understand
-
-VNet `10.0.0.0/16` is the whole office building; subnets are floors for different teams (AKS, DB, agents).
+Single platform VNet in Central India; all private communication stays inside it.

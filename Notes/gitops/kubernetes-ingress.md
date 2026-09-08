@@ -2,30 +2,37 @@
 
 **File:** `apps/ingress/ingress.yaml`
 
-## Brief introduction
+## Introduction
 
-An **Ingress** object describes HTTP routing rules (host/path → Service). An Ingress **controller** (ingress-nginx) implements them.
+An **Ingress** resource describes HTTP routing: host/path → backend Service. It is implemented by an Ingress **controller** (here ingress-nginx installed with Helm). One public IP can multiplex many apps by path or host.
 
-## Why we create it
+## Why we use it
 
-One public IP, multiple apps: `/emp` and `/to-do` (plus `/static` for todolist assets).
+We want **one** public address for humans, with `/emp` and `/to-do` selecting apps. Separate public IPs per Service would cost more and confuse users.
 
-## How it is created
+## Real-life example
 
-Flux applies the Ingress; ingress-nginx (Helm) watches it and programs NGINX.
+Mall **directory signs at a single entrance**:
 
-```yaml
-# conceptual
-paths:
-  - /emp    → frontend-service:80
-  - /to-do  → todolist-service:80
-  - /static → todolist-service:80
+- Electronics → `/emp`  
+- Errands desk → `/to-do`  
+- Shared brochure rack → `/static`  
+
+The entrance hardware is ingress-nginx; the signs are this Ingress object.
+
+## Connections
+
+```
+Internet --> LB IP (Helm ingress-nginx)
+              --> Ingress apps-ingress rules
+                    --> frontend-service / todolist-service
+                          --> pods
+
+Backend API is NOT an Ingress path; browsers talk to frontend,
+frontend (server/browser calls as designed) uses private ACI.
+CORS on ACI must allow origin http://<LB-IP> ...
 ```
 
-## Use in this project
+## In this project
 
-Public path-based routing to AKS apps (backend stays private on ACI).
-
-## Example to understand
-
-Directory signs at the mall entrance: “Electronics → /emp”, “Errands → /to-do”.
+Applied by Flux after controller exists; order matters (Helm first, then Flux apps — or Flux retries until controller is ready).

@@ -1,28 +1,44 @@
 # azurerm_linux_virtual_machine
 
-## Brief introduction
+## Introduction
 
-An Azure **Linux VM** — IaaS compute you manage (OS, agents, tools).
+An Azure **Linux VM** is IaaS: you choose size/image and manage the OS. Here it runs an Azure DevOps agent plus kubectl/helm/flux tooling.
 
-## Why we create it
+## Why we use it
 
-Private AKS API is unreachable from Microsoft-hosted pipeline agents. A VM **inside the VNet** runs `kubectl` / `helm` / `flux` jobs on pool `empapp-private-pool`.
+**Private AKS API cannot be reached from Microsoft-hosted agents** (they sit on public Azure infrastructure outside your VNet). Any pipeline step that needs `kubectl`, `helm`, or `flux` against this cluster must run on a machine **inside the VNet** — this VM.
+
+## Real-life example
+
+A **resident building engineer** who lives on campus.
+
+External contractors (Microsoft-hosted agents) cannot enter the locked manager’s office (private AKS API). The resident engineer can. They still ship mail out through the loading dock (NAT) to talk to Azure DevOps headquarters.
+
+## Connections in this project
+
+```
+Azure DevOps job (pool empapp-private-pool)
+  --> runs on this VM
+        --> kubectl/helm/flux --> private AKS API
+        --> outbound via NAT --> AzDO / GitHub / mirrors
+
+Terraform:
+  networking.agent_subnet --> NIC --> VM
+  run_command installs agent + tools
+  SSH key from tls_private_key
+```
+
+Pipelines that **must** use this pool:
+
+- ingress-nginx Helm  
+- Flux bootstrap  
+
+Pipelines that use `ubuntu-latest` (ARM/docker only) do **not** need it.
 
 ## How Terraform creates it
 
-```hcl
-resource "azurerm_linux_virtual_machine" "agent" {
-  name                = "vm-azdo-agent"
-  size                = "Standard_B2s"
-  network_interface_ids = [azurerm_network_interface.agent.id]
-  # Ubuntu 22.04, SSH with tls_private_key public key
-}
-```
+Ubuntu 22.04 VM in `terraform/modules/agent-vm`, size typically small (e.g. B2s).
 
-## Use in this project
+## In this project
 
-Self-hosted AzDO agent for ingress Helm + Flux bootstrap pipelines.
-
-## Example to understand
-
-A worker sitting inside the locked building who can talk to the private Kubernetes API, while cloud workers outside cannot.
+Bridge between CI/CD and private Kubernetes.

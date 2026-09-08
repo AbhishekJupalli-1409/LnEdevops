@@ -1,35 +1,49 @@
 # azurerm_subscription_policy_assignment
 
-## Brief introduction
+## Introduction
 
-Azure Policy **assignments** attach a policy definition to a scope (here: the subscription). They audit or deny non-compliant resources.
+**Azure Policy** lets an organization define rules (“definitions”) and **assign** them to a scope (management group, subscription, RG). Assignments can Audit or **Deny** non-compliant resources.
 
-## Why we create it
+This resource assigns built-in definitions to the **subscription**.
 
-Guardrails so the platform cannot drift into wrong regions, missing cost tags, or public NICs.
+## Why we use it
+
+Cloud accounts drift: someone creates a VM in East US “just for a quick test,” forgets cost tags, or attaches a public IP to a NIC and accidentally exposes SSH.
+
+Policy is preventative governance — like building codes — so Terraform and portal clicks alike are forced into safe defaults for this learning platform.
+
+## Real-life example
+
+City **zoning and building codes**:
+
+- You may only build in certain districts (allowed locations = India regions).
+- Every property must list owner/tax IDs (required tags).
+- Apartment doors may not face the highway with unlocked public entrances (deny public IP on NICs).
+
+Inspectors (Azure Policy) reject illegal construction at permit time (resource create/update).
+
+## Connections in this project
+
+```
+Policy assignments (subscription)
+  --> constrain everything Terraform creates:
+        location must be allowed
+        tags must exist
+        Agent VM NIC cannot have public IP
+          --> therefore Agent uses NAT Gateway for outbound instead
+```
+
+Module: `terraform/modules/policy`.
 
 ## How Terraform creates it
 
-Module: `terraform/modules/policy/main.tf` — four built-in definition assignments:
+Four assignments using known built-in definition GUIDs (see `docs/ARCHITECTURE_NOTES.md`):
 
-1. Allowed locations (India regions)
-2. Require tag `Business Unit`
-3. Require tag `Cost Center`
-4. Deny public IP on NICs
+1. Allowed locations  
+2. Require tag `Business Unit`  
+3. Require tag `Cost Center`  
+4. Network interfaces should not have public IPs  
 
-```hcl
-resource "azurerm_subscription_policy_assignment" "allowed_locations" {
-  name                 = "allowed-locations"
-  policy_definition_id = "/providers/Microsoft.Authorization/policyDefinitions/e56962a6-4747-49cd-b67b-bf8b01975c4c"
-  subscription_id      = data.azurerm_subscription.current.id
-  # parameters: listOfAllowedLocations
-}
-```
+## In this project
 
-## Use in this project
-
-Subscription-wide compliance before/while creating networking and compute.
-
-## Example to understand
-
-Like company rules: “You may only build in India” and “Every resource must have Cost Center.” Terraform assigns those rules once; Azure enforces them on create/update.
+Applied early in the env root so later modules inherit the guardrails.

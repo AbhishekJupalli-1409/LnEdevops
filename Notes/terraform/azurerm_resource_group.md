@@ -1,18 +1,51 @@
 # azurerm_resource_group
 
-## Brief introduction
+## Introduction
 
-A **resource group** is a logical container in Azure. Almost every other Azure resource must live in one. Deleting a RG can delete all resources inside it.
+An Azure **resource group (RG)** is a logical container for related resources. Almost every Azure resource must belong to one. You can apply tags, lock it, view costs, and delete the whole group when a project ends.
 
-## Why we create it
+It does **not** provide networking isolation by itself — that is the VNet’s job. The RG is about **lifecycle and organization**.
 
-- Groups platform resources (or state resources) under one name, location, and tags.
-- Satisfies Azure policy tags (`Business Unit`, `Cost Center`) at the container level and for child resources.
+## Why we use it
+
+Without resource groups, dozens of AKS, NIC, NSG, and Key Vault objects become hard to find, bill, and tear down. Policies and tags are also easier to manage when resources share an RG.
+
+In this project we need:
+
+- One RG for **platform** resources (apps infra).
+- One RG for **Terraform remote state** storage (bootstrap), so state survives even if you recreate the platform RG carefully.
+
+## Real-life example
+
+Think of a **project binder** or **warehouse aisle labeled “Employee Platform”**.
+
+- Every box (AKS, ACR, VM, database) for that project goes on that aisle.
+- When the project is cancelled, facilities can clear the whole aisle instead of hunting boxes across the building.
+- Cost accounting can say “how much did aisle EmpApp cost this month?”
+
+The binder is not a locked room (security); it is an organizational shelf.
+
+## Connections in this project
+
+```
+azurerm_resource_group.this
+   ├── networking (VNet, subnets, NSG, NAT, private DNS)
+   ├── ACR
+   ├── AKS
+   ├── PostgreSQL
+   ├── Key Vault + Private Endpoint
+   ├── ACI backend
+   └── Agent VM
+
+azurerm_resource_group.state (bootstrap)
+   └── Storage Account + tfstate container  --> used by env Terraform backend
+```
+
+Tags `Business Unit` and `Cost Center` on the RG help satisfy subscription policy that requires those tags on resources.
 
 ## How Terraform creates it
 
-**Bootstrap** (`terraform/bootstrap/main.tf`) — RG for Terraform state storage.  
-**Environment** (`terraform/envs/centralindia/main.tf`) — main platform RG.
+**Platform** — `terraform/envs/centralindia/main.tf`:
 
 ```hcl
 resource "azurerm_resource_group" "this" {
@@ -22,13 +55,11 @@ resource "azurerm_resource_group" "this" {
 }
 ```
 
-## Use in this project
+**Bootstrap** — `terraform/bootstrap/main.tf` creates `azurerm_resource_group.state` for remote state only.
 
-| Instance | Purpose |
-|----------|---------|
-| `state` | Holds the storage account for remote Terraform state |
-| `this` | Holds VNet, AKS, ACR, Postgres, Key Vault, ACI, agent VM |
+## In this project
 
-## Example to understand
-
-Think of a RG like a project folder: `empapp-rg` holds everything for the employee platform so you can find, tag, and (if needed) tear down the whole stack together.
+| Instance | Role |
+|----------|------|
+| `this` | Main platform RG in Central India |
+| `state` | Holds Terraform state storage account |

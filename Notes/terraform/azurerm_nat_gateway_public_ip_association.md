@@ -1,12 +1,24 @@
 # azurerm_nat_gateway_public_ip_association
 
-## Brief introduction
+## Introduction
 
-Links a public IP resource to a NAT Gateway so outbound traffic uses that IP.
+This association resource attaches a public IP (or prefix) to a NAT Gateway. Until associated, the NAT Gateway has no outbound address to use.
 
-## Why we create it
+## Why we use it
 
-NAT Gateway alone has no address until you associate a public IP.
+Terraform models Azure’s link between NAT and PIP explicitly so dependencies are clear and destroy order is safe.
+
+## Real-life example
+
+Plugging the **phone company’s copper pair** into your PBX. The PBX exists, the phone number exists — association connects them.
+
+## Connections in this project
+
+```
+azurerm_public_ip.nat  --associates-->  azurerm_nat_gateway.agent
+```
+
+Together with subnet association, agent subnet traffic can egress.
 
 ## How Terraform creates it
 
@@ -17,10 +29,6 @@ resource "azurerm_nat_gateway_public_ip_association" "agent" {
 }
 ```
 
-## Use in this project
+## In this project
 
-Binds `pip-nat-agent` to `nat-agent`.
-
-## Example to understand
-
-Attaching a phone number to the office PBX before anyone can call out.
+Part of the three-piece NAT setup: gateway + PIP association + subnet association.

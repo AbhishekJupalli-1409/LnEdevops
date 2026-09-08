@@ -1,31 +1,34 @@
 # azurerm_nat_gateway
 
-## Brief introduction
+## Introduction
 
-**NAT Gateway** gives private subnets SNAT outbound internet access through one or more public IPs.
+**NAT Gateway** provides scalable SNAT (outbound) for private subnets through associated public IPs. Many private VMs share outbound connectivity without each having a public IP.
 
-## Why we create it
+## Why we use it
 
-Agent VM has no public IP but must reach Azure DevOps, package mirrors, etc.
+Agent VM must call Azure DevOps to register/listen for jobs, and download tools. With no NIC public IP (policy), NAT Gateway is the compliant egress pattern.
+
+## Real-life example
+
+Office phones with **no direct outside lines**, all dialing out through one **PBX trunk number**. Outside callers cannot dial individual desks through that trunk; desks can still call out.
+
+## Connections in this project
+
+```
+Agent VM (private IP)
+  --> snet-agent
+        --> NAT Gateway
+              --> Public IP
+                    --> Internet / Azure DevOps
+
+Pipelines on empapp-private-pool run ON this VM,
+so they can reach private AKS API while still reaching GitHub/Azure endpoints outbound.
+```
 
 ## How Terraform creates it
 
-```hcl
-resource "azurerm_nat_gateway" "agent" {
-  name                    = "nat-agent"
-  location                = var.location
-  resource_group_name     = var.resource_group_name
-  sku_name                = "Standard"
-  idle_timeout_in_minutes = 10
-}
-```
+Created in networking module, then linked with public IP association + subnet association resources.
 
-Paired with `azurerm_nat_gateway_public_ip_association` and `azurerm_subnet_nat_gateway_association`.
+## In this project
 
-## Use in this project
-
-Outbound-only path for `snet-agent`.
-
-## Example to understand
-
-Private phones calling out through one office landline number — callers outside cannot dial individual phones.
+Enables the private agent pattern required by private AKS.

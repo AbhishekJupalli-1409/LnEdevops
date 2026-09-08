@@ -1,30 +1,30 @@
 # azuredevops_project
 
-## Brief introduction
+## Introduction
 
-An Azure DevOps **project** holds repos (or GitHub links), pipelines, boards, and service connections.
+An Azure DevOps **project** is a container for pipelines, repos, boards, artifacts, and service connections. (The **organization** itself cannot be created by the provider — you create that manually once.)
 
-## Why we create it
+## Why we use it
 
-Optionally provision the AzDO project and wiring via Terraform so CI/CD is reproducible (module is count-gated).
+Optional Terraform management (`manage_azure_devops`) makes the project reproducible: same name, visibility, and child connections/pipelines as code.
+
+## Real-life example
+
+Opening a **project office** in a company HQ building (the AzDO org). Inside that office you put crews (pipelines), phone lines (service connections), and a shared whiteboard (variable group).
+
+## Connections in this project
+
+```
+azuredevops_project
+  ├── service endpoints (ARM, ACR, GitHub)
+  ├── variable group empapp-shared-vars
+  └── build definitions --> YAML in pipelines/
+```
 
 ## How Terraform creates it
 
-```hcl
-resource "azuredevops_project" "this" {
-  name               = var.project_name
-  visibility         = "private"
-  version_control    = "Git"
-  work_item_template = "Agile"
-}
-```
+Module `terraform/modules/azuredevops` (count-gated).
 
-Module: `terraform/modules/azuredevops` (optional).
+## In this project
 
-## Use in this project
-
-Home for pipelines and the shared variable group / service endpoints.
-
-## Example to understand
-
-Creating the “Employee App” project space in Azure DevOps automatically instead of clicking through the UI.
+Home for all seven YAML pipelines’ definitions when managed by Terraform.

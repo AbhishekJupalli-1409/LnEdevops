@@ -1,21 +1,35 @@
 # Kustomize (apps)
 
-**File:** `gitops/clusters/aks-centralindia/apps/kustomization.yaml`  
+**Native:** `apps/kustomization.yaml`  
 **Flux CR:** `apps-kustomization.yaml`
 
-## Brief introduction
+## Introduction
 
-**Kustomize** composes plain YAML (resources list, patches, etc.) without templates. Flux natively understands Kustomize directories and its own `Kustomization` CRD.
+**Kustomize** builds a set of Kubernetes YAML files from a `kustomization.yaml` list (and optional patches/overlays) without Go templates. Flux natively runs Kustomize builds and also has its own `Kustomization` custom resource to schedule those builds from git.
 
-## Why we create it
+## Why we use it
 
-Keep app manifests as readable YAML and let one `kustomization.yaml` list them for Flux to apply as a unit.
+Keeps app manifests as plain YAML (easy to read in PRs) while giving Flux one unit to reconcile. Substitutions (`cluster-vars`) inject environment-specific values without forking files per deployment.
 
-## How it works here
+## Real-life example
 
-- Native `apps/kustomization.yaml` lists namespace, frontend, todolist, ingress.
-- Flux `Kustomization` named `apps` points at `./apps` and enables substitutions from `cluster-vars`.
+A **packing list** (“include these documents”) plus a supervisor (Flux Kustomization) who unpacks the box onto the correct floor every five minutes and fills in blanks from sticky notes (`cluster-vars`).
 
-## Example to understand
+## Connections
 
-A packing list (“include these files”) plus a Flux supervisor that unpacks the box into the cluster every few minutes.
+```
+apps/kustomization.yaml lists:
+  - namespace.yaml
+  - frontend/*.yaml
+  - todolist/*.yaml
+  - ingress/ingress.yaml
+
+Flux Kustomization apps
+  path: ./apps
+  substituteFrom: cluster-vars
+  --> renders final manifests --> apply to cluster
+```
+
+## In this project
+
+Composition layer between git files and live AKS objects.

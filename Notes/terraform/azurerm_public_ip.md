@@ -1,28 +1,42 @@
 # azurerm_public_ip
 
-## Brief introduction
+## Introduction
 
-A **public IP** is an internet-routable address you can attach to load balancers, NAT gateways, or (when policy allows) NICs.
+A **public IP** is an Internet-reachable address in Azure. It can attach to load balancers, application gateways, NAT gateways, or (if policy allows) directly to a NIC.
 
-## Why we create it
+## Why we use it
 
-The agent subnet needs **outbound** internet (register AzDO agent, pull packages) without putting a public IP on the VM NIC (policy denies public IPs on NICs).
+Policy **denies public IPs on NICs**, but the agent VM still needs **outbound** Internet (register to Azure DevOps, apt packages, GitHub for Flux). A public IP on a **NAT Gateway** (not on the NIC) solves outbound without exposing inbound SSH on a public address.
+
+Separately, the **app** public IP comes later from Kubernetes (`Service type: LoadBalancer` for ingress-nginx) — that is not this Terraform public IP.
+
+## Real-life example
+
+The workshop has **no street-facing door** (no public IP on the agent NIC). Instead the building has a **shared outbound loading dock number** (NAT public IP). Workers can ship packages out; strangers cannot walk into the workshop from the street using that dock number as a front door.
+
+## Connections in this project
+
+```
+azurerm_public_ip.nat
+  --> azurerm_nat_gateway_public_ip_association
+        --> azurerm_nat_gateway.agent
+              --> associated to snet-agent
+                    --> Agent VM outbound --> Azure DevOps / Internet
+
+(App public IP)
+  Users --> ingress-nginx LB IP  (created by Azure when Helm installs the chart — not this resource)
+```
 
 ## How Terraform creates it
 
 ```hcl
 resource "azurerm_public_ip" "nat" {
-  name                = "pip-nat-agent"
-  allocation_method   = "Static"
-  sku                 = "Standard"
-  # attached to NAT Gateway, not to the VM NIC
+  name              = "pip-nat-agent"
+  allocation_method = "Static"
+  sku               = "Standard"
 }
 ```
 
-## Use in this project
+## In this project
 
-Only for the agent **NAT Gateway**. App public access later comes from the AKS ingress LoadBalancer (created by Kubernetes/Helm, not this TF resource).
-
-## Example to understand
-
-NAT public IP = one shared “exit door” for many private VMs. The VM itself has no doorbell on the internet.
+Only for agent NAT egress. Do not confuse with the ingress LB IP printed by the Helm pipeline.

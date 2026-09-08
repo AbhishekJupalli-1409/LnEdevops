@@ -1,32 +1,39 @@
 # azurerm_private_endpoint
 
-## Brief introduction
+## Introduction
 
-A **Private Endpoint** is a NIC with a private IP that maps to a PaaS resource over Private Link.
+A **Private Endpoint** is a NIC with a private IP that maps to a PaaS resource over Azure Private Link. Traffic to the resource’s “data plane” stays on the Microsoft backbone / your VNet instead of public endpoints.
 
-## Why we create it
+## Why we use it
 
-Key Vault has public access disabled; the PE is how VNet clients reach it privately.
+Key Vault has `public_network_access_enabled = false`. Without a PE (or other approved private path), nothing in the VNet could reach it.
+
+## Real-life example
+
+Building a **private tunnel from the campus into the vault building**. You never walk through the public lobby; you enter via the tunnel door that only campus badges can use.
+
+## Connections in this project
+
+```
+snet-pe --> Private Endpoint NIC (private IP)
+              --> Private Link --> Key Vault
+Private DNS zone group maps vault hostname --> PE IP
+```
+
+Postgres intentionally does **not** use this pattern; it uses Flexible Server VNet integration instead.
 
 ## How Terraform creates it
 
 ```hcl
 resource "azurerm_private_endpoint" "keyvault" {
-  name                = "pe-keyvault"
-  subnet_id           = var.pe_subnet_id
+  subnet_id = var.pe_subnet_id
   private_service_connection {
     private_connection_resource_id = azurerm_key_vault.this.id
     subresource_names              = ["vault"]
-    is_manual_connection           = false
   }
-  private_dns_zone_group { ... }
 }
 ```
 
-## Use in this project
+## In this project
 
-Private access path to Key Vault from the platform VNet.
-
-## Example to understand
-
-A private tunnel from your VNet floor (`snet-pe`) straight into the Key Vault service.
+Only Key Vault PE today; PE subnet can host more later (e.g. Premium ACR).

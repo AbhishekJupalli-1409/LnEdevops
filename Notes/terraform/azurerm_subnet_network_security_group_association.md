@@ -1,12 +1,23 @@
 # azurerm_subnet_network_security_group_association
 
-## Brief introduction
+## Introduction
 
-Attaches an NSG to a subnet so all NICs in that subnet inherit the rules.
+Attaches an NSG to a subnet so every NIC in that subnet inherits the rules.
 
-## Why we create it
+## Why we use it
 
-Rules only take effect after association.
+Rules sitting on an unattached NSG do nothing. Association is the activation step.
+
+## Real-life example
+
+Printing a security policy is useless until you **nail it to the correct floor’s door**.
+
+## Connections in this project
+
+```
+NSG aks --assoc--> snet-aks
+NSG aci --assoc--> snet-aci
+```
 
 ## How Terraform creates it
 
@@ -17,12 +28,6 @@ resource "azurerm_subnet_network_security_group_association" "aci" {
 }
 ```
 
-Same pattern for AKS.
+## In this project
 
-## Use in this project
-
-Applies AKS and ACI NSGs to their subnets.
-
-## Example to understand
-
-Hanging the firewall policy sheet on the correct floor’s door.
+Activates AKS/ACI firewalling used by the Frontend→Backend path.

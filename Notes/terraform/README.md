@@ -1,6 +1,6 @@
-# Terraform resource notes
+# Terraform resource notes (elaborated)
 
-One file per **resource type** used in this repo.
+Each file explains **what**, **why**, a **real-life analogy**, **connections** in this repo, and **how Terraform creates it**.
 
 | File | Resource |
 |------|----------|

@@ -1,12 +1,26 @@
 # random_password
 
-## Brief introduction
+## Introduction
 
-Generates a strong password and stores it in Terraform state (often then copied into Key Vault).
+Generates a cryptographic-quality password and stores it in Terraform state. Often passed into databases and copied into Key Vault for humans/apps.
 
-## Why we create it
+## Why we use it
 
-Postgres admin password should not be a hardcoded string in git.
+Hardcoding `Password123!` in git is a real-world breach pattern. Generation + Key Vault storage keeps secrets out of the repo.
+
+## Real-life example
+
+A password manager’s **Generate** button: create once, save in the vault, never commit to the team wiki.
+
+## Connections in this project
+
+```
+random_password.administrator
+  --> azurerm_postgresql_flexible_server.administrator_password
+  --> azurerm_key_vault_secret.postgres_admin_password
+  --> also used when composing connection string secret
+  --> ACI backend uses DB credentials (via env/config from TF)
+```
 
 ## How Terraform creates it
 
@@ -17,12 +31,8 @@ resource "random_password" "administrator" {
 }
 ```
 
-Fed into `azurerm_postgresql_flexible_server` and Key Vault secrets.
+Module: `terraform/modules/postgresql`.
 
-## Use in this project
+## In this project
 
-Administrator password for the Flexible Server; also stored as a Key Vault secret.
-
-## Example to understand
-
-Terraform rolls a dice-password once, remembers it in state, and puts a copy in the vault for humans/apps.
+Root credential for the Flexible Server admin user.

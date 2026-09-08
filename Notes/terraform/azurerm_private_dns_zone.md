@@ -1,32 +1,33 @@
 # azurerm_private_dns_zone
 
-## Brief introduction
+## Introduction
 
-A **private DNS zone** resolves Azure Private Link / privatelink hostnames inside your VNet (e.g. `*.privatelink.vaultcore.azure.net`).
+**Private DNS zones** resolve special Azure hostnames (often `*.privatelink...`) to **private IPs** inside your VNet. Without them, clients may resolve the public endpoint or fail to resolve Private Link names.
 
-## Why we create it
+## Why we use it
 
-Without private DNS, clients would try public endpoints. Private Postgres and Key Vault need names that resolve to private IPs.
+Key Vault is private (PE). Postgres Flexible Server uses private DNS for VNet integration. Apps and Terraform need names like `*.postgres.database.azure.com` / vault hostnames to resolve correctly inside the VNet.
+
+## Real-life example
+
+A company’s **internal phone directory**.
+
+When you dial “Key Vault,” the directory returns the **internal extension** (private IP), not the public customer hotline. External people don’t get that directory.
+
+## Connections in this project
+
+```
+Private DNS zone postgres  --link--> VNet  --> Flexible Server private hostname works for ACI
+Private DNS zone keyvault  --link--> VNet  --> PE NIC IP answers vault hostname for VNet clients
+```
 
 ## How Terraform creates it
 
-```hcl
-resource "azurerm_private_dns_zone" "postgres" {
-  name                = "privatelink.postgres.database.azure.com"
-  resource_group_name = var.resource_group_name
-}
+Zones:
 
-resource "azurerm_private_dns_zone" "keyvault" {
-  name                = "privatelink.vaultcore.azure.net"
-  resource_group_name = var.resource_group_name
-}
-```
+- `privatelink.postgres.database.azure.com`
+- `privatelink.vaultcore.azure.net`
 
-## Use in this project
+## In this project
 
-- Postgres Flexible Server VNet integration DNS
-- Key Vault private endpoint DNS
-
-## Example to understand
-
-Internal phone book: when code asks for `myvault.vault.azure.net`, DNS answers with the private PE IP, not the public one.
+Invisible glue that makes private PaaS “just work” by name.

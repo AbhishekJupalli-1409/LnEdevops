@@ -2,23 +2,31 @@
 
 **File:** `pipelines/aci-backend-deploy-azure-pipelines.yml`
 
-## Brief introduction
+## Introduction
 
-Manual-oriented pipeline to restart or refresh the private ACI backend container group (e.g. after ingress IP is known for CORS/`WHITELIST_URLS`).
+Operational pipeline to **restart or refresh** the private ACI backend container group—commonly after the ingress public IP is known so CORS / `WHITELIST_URLS` can allow the real browser origin.
 
-## Why we create it
+## Why we use it
 
-Backend env often needs the **public ingress IP** which does not exist until Helm install finishes. Terraform alone cannot know that IP on first apply.
+Chicken-and-egg: Terraform creates ACI before Helm creates the public ingress IP. Browsers calling the API through the frontend origin need that IP allow-listed. This pipeline (or a second `terraform apply` with `frontend_origin`) closes the loop without redesigning networking.
 
-## How it works
+Runs on `ubuntu-latest` because it uses **Azure ARM/CLI** against ACI, not kubectl.
 
-- Pool: `ubuntu-latest` (Azure ARM API to restart ACI)
-- Typically restarts the container group or updates config using Azure CLI
+## Real-life example
 
-## Use in this project
+The mall finally gets its street number painted on the door. Back-office security updates the **visitor allow-list** (“accept browser calls from that street address”) and reboots the service window.
 
-Closes the loop: ingress IP → backend allow-list → browser can call API through the frontend.
+## Connections
 
-## Example to understand
+```
+ingress-nginx pipeline outputs EXTERNAL-IP
+  --> set frontend_origin / WHITELIST
+        --> this pipeline restarts/updates ACI
+              --> browser at http://EXTERNAL-IP/emp can call API successfully
 
-After the mall gate gets its street number, update the backend’s “allowed websites” list and reboot the API box.
+Also used when a new backend image was pushed to ACR and ACI should pull/restart.
+```
+
+## In this project
+
+Final glue between public ingress identity and private API CORS policy. See runbook steps 3–4.

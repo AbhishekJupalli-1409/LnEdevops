@@ -1,32 +1,40 @@
 # GitOps + Helm overview
 
-## Brief introduction
+## Introduction
 
-- **Helm** — package manager used here only for **ingress-nginx** (controller).
-- **Flux** — GitOps operator that syncs `gitops/clusters/aks-centralindia` into AKS.
-- **Kustomize** — lists and composes raw Kubernetes YAML for apps (no custom Helm charts for apps).
+Three layers cooperate:
 
-## Why this design
+| Layer | Tool | Job |
+|-------|------|-----|
+| Ingress controller | **Helm** (ingress-nginx chart) | Process that watches Ingress objects and opens a public LB |
+| Desired app state | **Git** + **Flux** | Continuously make the cluster match YAML in `gitops/` |
+| Compose YAML | **Kustomize** | List/patch plain manifests without a custom Helm chart per app |
 
-| Concern | Tool |
-|---------|------|
-| Public HTTP entry | Helm ingress-nginx |
-| App desired state | Git + Flux |
-| Image/registry & backend IP placeholders | Flux `postBuild` substituteFrom `cluster-vars` |
-| Backend API | ACI (not in GitOps) |
+Backend API is **not** in GitOps — it is ACI from Terraform.
 
-## How traffic flows
+## Why this split
+
+- Helm shines for complex third-party charts (ingress-nginx).  
+- Plain YAML + Flux shines for *your* apps (readable, PR-reviewed).  
+- Keeping ACI out of GitOps matches “private API appliance” managed with Azure lifecycle.
+
+## Real-life example
+
+- **Helm** = hiring a specialist firm to install the mall’s revolving door system (standard product, many knobs).  
+- **Flux + git** = the binder that says which shops exist, what they sell, and which signs hang on the door.  
+- **ACI** = a separate back-office vendor contract managed by facilities (Terraform), not by the shop binder.
+
+## Connections
 
 ```
-Internet → ingress-nginx LB IP
-            ├─ /emp     → frontend-service → frontend pods
-            ├─ /to-do   → todolist-service → todolist pods
-            └─ /static  → todolist static assets
-Frontend pods → BACKEND_PRIVATE_IP:PORT (ACI) → Postgres (VNet)
+Users --> ingress-nginx (Helm) public IP
+            --> Ingress (Flux) path rules
+                  --> Services (Flux)
+                        --> Pods from Deployments (Flux)
+                              images from ACR
+                              frontend --> ACI private IP (cluster-vars)
+                                            --> Postgres
+
+Terraform provides: AKS, ACR, ACI IP, agent VM
+Pipelines: Helm install + Flux bootstrap + image builds
 ```
-
-## Paths in repo
-
-- `helm/nginx-ingress-values.yaml`
-- `gitops/clusters/aks-centralindia/apps-kustomization.yaml`
-- `gitops/clusters/aks-centralindia/apps/**`

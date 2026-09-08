@@ -1,41 +1,54 @@
 # azurerm_kubernetes_cluster
 
-## Brief introduction
+## Introduction
 
-**AKS** is managed Kubernetes: Azure runs the control plane; you run workloads on node pools.
+**Azure Kubernetes Service (AKS)** is managed Kubernetes. Azure runs the control plane (API server, etcd, schedulers); you run application pods on node VMs in a node pool.
 
-## Why we create it
+A **private cluster** means the API server has **no public endpoint**. Only networks that can resolve/route to the private API (here: the VNet / agent subnet) can run `kubectl`.
 
-Host employee frontend and todolist with GitOps, plus ingress-nginx for a public path-based entrypoint — while keeping the **API server private**.
+That is different from app traffic: a `LoadBalancer` Service can still get a **public** IP for ingress.
+
+## Why we use it
+
+We need a place to run two web frontends with rolling updates, Services, and Ingress — and we want GitOps (Flux). AKS is the standard Azure choice. Making the API private reduces attack surface (no random Internet `kubectl`).
+
+## Real-life example
+
+A **hotel**:
+
+- **Front door for guests** = ingress public IP (`/emp`, `/to-do`).
+- **Manager’s office** = Kubernetes API — locked inside the staff wing (private). Guests enjoy rooms without ever entering the manager’s office.
+- Microsoft-hosted pipeline agents are like contractors **outside the building** — they cannot open the manager’s office door. You need an **on-site technician** (Agent VM) for Helm/Flux.
+
+## Connections in this project
+
+```
+Users --HTTPS--> ingress-nginx LB (public) --> Services --> Pods (frontend, todolist)
+Pods --private--> ACI backend --> Postgres
+
+Agent VM --private--> AKS API -- helm install ingress / flux bootstrap / kubectl
+
+AKS kubelet --AcrPull--> ACR
+
+Flux controllers (in cluster) --pull git--> GitHub gitops path
+                             --apply--> Deployments/Services/Ingress in namespace apps
+```
+
+Depends on: `snet-aks`, ACR id (for role assignment).  
+Consumed by: Helm pipeline, Flux pipeline, GitOps manifests.
 
 ## How Terraform creates it
 
 ```hcl
 resource "azurerm_kubernetes_cluster" "this" {
-  name                     = var.cluster_name
-  private_cluster_enabled  = true
-  private_dns_zone_id      = "System"
-  sku_tier                 = "Free"
-
-  default_node_pool {
-    name           = "system"
-    vnet_subnet_id = var.aks_subnet_id
-    # ...
-  }
-
-  network_profile {
-    network_plugin    = "kubenet"
-    load_balancer_sku = "standard"
-  }
+  private_cluster_enabled = true
+  private_dns_zone_id     = "System"
+  # node pool attached to aks subnet, kubenet + standard LB
 }
 ```
 
 Module: `terraform/modules/aks`.
 
-## Use in this project
+## In this project
 
-Private cluster for Flux-managed apps. Ingress still can get a **public** LB IP for `/emp` and `/to-do`.
-
-## Example to understand
-
-The Kubernetes “admin desk” (API) is inside a locked room (private). Customers still enter through the front door (ingress LoadBalancer) to use the apps.
+Cluster name like `aks-empapp-cin`. Hosts only frontend + todolist (+ ingress/Flux system). Backend stays on ACI by design.

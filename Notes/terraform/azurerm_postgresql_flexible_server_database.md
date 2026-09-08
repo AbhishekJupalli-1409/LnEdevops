@@ -1,12 +1,25 @@
 # azurerm_postgresql_flexible_server_database
 
-## Brief introduction
+## Introduction
 
-Creates a logical **database** on a Flexible Server (like `CREATE DATABASE`).
+Creates a **logical database** on an existing Flexible Server (similar to `CREATE DATABASE`).
 
-## Why we create it
+## Why we use it
 
-App expects a dedicated database (not only the default `postgres` DB).
+Apps typically use a dedicated database name (not the default `postgres` maintenance DB). Schema migrations and connection strings point at that name.
+
+## Real-life example
+
+One archive building (server) contains many labeled filing cabinets (databases). The employee app only opens the cabinet named **employee**.
+
+## Connections in this project
+
+```
+Flexible Server
+  └── database "employee"
+        <-- connection string secret in Key Vault
+        <-- ACI backend Sequelize config
+```
 
 ## How Terraform creates it
 
@@ -14,15 +27,9 @@ App expects a dedicated database (not only the default `postgres` DB).
 resource "azurerm_postgresql_flexible_server_database" "employee" {
   name      = "employee"
   server_id = azurerm_postgresql_flexible_server.this.id
-  charset   = "UTF8"
-  collation = "en_US.utf8"
 }
 ```
 
-## Use in this project
+## In this project
 
-`employee` database for the employee app schema/tables.
-
-## Example to understand
-
-Server = apartment building; database `employee` = one apartment the app lives in.
+Target DB for employee backend tables.

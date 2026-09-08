@@ -1,27 +1,35 @@
 # Helm: ingress-nginx
 
-**Values file:** `helm/nginx-ingress-values.yaml`  
-**Installed by:** `pipelines/ingress-nginx-helm-azure-pipelines.yml`
+**Values:** `helm/nginx-ingress-values.yaml`  
+**Installed by:** private-pool pipeline `ingress-nginx-helm-azure-pipelines.yml`
 
-## Brief introduction
+## Introduction
 
-**Helm** installs charts (templated Kubernetes packages). The official **ingress-nginx** chart runs NGINX as an Ingress controller watching Ingress objects.
+**Helm** is the package manager for Kubernetes. A **chart** is a templated set of Kubernetes resources. The official **ingress-nginx** chart installs NGINX Ingress Controller pods plus a Service (here `LoadBalancer`) that receives a public IP on Azure.
 
-## Why we create / install it
+This repo does **not** vendor a custom chart — only a **values** file that tunes replicas, resources, and service type.
 
-Kubernetes needs a controller to implement `Ingress` resources. This chart gives a `LoadBalancer` Service → public IP for path routing.
+## Why we use it
 
-## How it is used here
+Without a controller, `kind: Ingress` objects do nothing. ingress-nginx is the common open-source choice and integrates with Azure LB out of the box via `type: LoadBalancer`.
 
-Values highlight:
+## Real-life example
 
-- 2 controller replicas
-- Service type `LoadBalancer`
-- Small CPU/memory for cost
-- Default IngressClass `nginx`
+Ordering a **standard door system kit** from a vendor (chart) and filling a preference form (values.yaml): “two attendants (replicas), normal size motors (resources), street-facing entrance (LoadBalancer).” The private-pool pipeline is the on-site crew allowed into the locked building to install it.
 
-No custom chart lives in-repo — only values + pipeline `helm upgrade --install`.
+## Connections
 
-## Example to understand
+```
+helm upgrade --install
+  -f nginx-ingress-values.yaml
+  --> controller Deployment in ingress-nginx namespace
+  --> Service LoadBalancer --> Azure public IP
+        --> reads Ingress apps-ingress (from Flux)
+              --> routes /emp /to-do /static
 
-Helm chart = IKEA furniture kit for “ingress controller.” Values.yaml = your chosen size/color. Pipeline = assembly team with access to the private workshop (AKS API).
+Public IP --> CORS/WHITELIST for ACI backend
+```
+
+## In this project
+
+Only Helm usage; apps themselves are raw YAML + Flux.

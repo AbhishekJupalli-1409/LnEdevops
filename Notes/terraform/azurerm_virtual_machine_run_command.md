@@ -1,32 +1,33 @@
 # azurerm_virtual_machine_run_command
 
-## Brief introduction
+## Introduction
 
-Runs a script on a VM via the Azure VM agent (no SSH session required from your laptop).
+**Run Command** executes a script on a VM through the Azure VM agent channel — no interactive SSH session required from your laptop.
 
-## Why we create it
+## Why we use it
 
-Automate installing Azure CLI, kubectl, helm, flux, and registering the Azure DevOps agent at provision time.
+After the VM exists, we still need: Azure CLI, kubectl, helm, flux, and Azure DevOps agent registration with a PAT and pool name. Automating that in Terraform makes the agent “appear Online” without manual SSH.
+
+## Real-life example
+
+Facilities sends a **setup checklist robot** into a new workshop: install tools, badge into HQ radio (AzDO), start listening for work orders — without the architect flying on-site with a USB stick.
+
+## Connections in this project
+
+```
+VM created
+  --> run_command script
+        --> install tools
+        --> register AzDO agent to pool empapp-private-pool using azp_url/token
+              --> private-pool pipelines can schedule jobs here
+```
+
+Uses secrets/vars: `azdo_org_service_url`, PAT, pool name from Terraform variables / pipeline variable group.
 
 ## How Terraform creates it
 
-```hcl
-resource "azurerm_virtual_machine_run_command" "install_agent" {
-  name               = "install-azdo-agent"
-  location           = var.location
-  virtual_machine_id = azurerm_linux_virtual_machine.agent.id
-  source {
-    script = <<-EOF
-      # install tools + configure azp agent with PAT
-    EOF
-  }
-}
-```
+`azurerm_virtual_machine_run_command.install_agent` in agent-vm module.
 
-## Use in this project
+## In this project
 
-Hands-free agent bootstrap after the VM exists.
-
-## Example to understand
-
-Remote “setup checklist” Azure runs on the new machine so you don’t SSH in to install everything manually.
+Hands-free agent bootstrap; wait a few minutes after apply for the agent to show Online.

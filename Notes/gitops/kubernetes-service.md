@@ -1,26 +1,31 @@
 # Kubernetes Service
 
-**Files:**
+**Files:** `apps/frontend/service.yaml`, `apps/todolist/service.yaml`
 
-- `apps/frontend/service.yaml`
-- `apps/todolist/service.yaml`
+## Introduction
 
-## Brief introduction
+A **Service** provides a stable virtual IP and DNS name (`frontend-service.apps.svc.cluster.local`) that load-balances to pods matching a selector. Pod IPs change; Service IPs/names do not.
 
-A **Service** gives a stable virtual IP/DNS name in-cluster that load-balances to matching pods.
+These are **ClusterIP** (internal only). Public exposure is via Ingress + ingress-nginx LB, not by making these Services public.
 
-## Why we create it
+## Why we use it
 
-Ingress (and other pods) should target `frontend-service` / `todolist-service`, not ephemeral pod IPs.
+Ingress and other pods should not hardcode pod IPs. Services are the stable “reception desk numbers.”
 
-## How it is created
+## Real-life example
 
-ClusterIP Services (internal only). Todolist maps Service port 80 → container 5000.
+The store’s **switchboard extension**. Cashiers (pods) rotate; the published extension (Service) always rings someone on duty.
 
-## Use in this project
+## Connections
 
-Backends for Ingress path rules.
+```
+Ingress path /emp    --> Service frontend-service:80 --> frontend pods
+Ingress path /to-do  --> Service todolist-service:80 --> todolist pods (:5000)
+Ingress path /static --> todolist-service (static assets)
 
-## Example to understand
+Services do NOT talk to Postgres; only frontend may call ACI using env IP.
+```
 
-Reception desk number that always forwards to whoever is currently on shift (pods).
+## In this project
+
+Internal glue between Ingress and Deployments.

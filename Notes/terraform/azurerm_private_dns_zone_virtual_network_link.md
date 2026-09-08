@@ -1,28 +1,30 @@
 # azurerm_private_dns_zone_virtual_network_link
 
-## Brief introduction
+## Introduction
 
-Links a private DNS zone to a VNet so VMs/pods in that VNet can resolve the zone.
+Links a private DNS zone to a VNet so resolvers in that VNet use the zone. A zone with no link is unused by that network.
 
-## Why we create it
+## Why we use it
 
-A private DNS zone is unused until linked to the network that needs it.
+Create zone → link to platform VNet → AKS/ACI/VM lookups succeed for privatelink names.
+
+## Real-life example
+
+Connecting the internal phone directory to **this campus’s phone system**. Another campus needs its own link to use the same directory style.
+
+## Connections in this project
+
+```
+postgres private DNS zone --link--> platform VNet
+keyvault private DNS zone --link--> platform VNet
+```
+
+Enables ACI→Postgres and VNet→Key Vault PE by hostname.
 
 ## How Terraform creates it
 
-```hcl
-resource "azurerm_private_dns_zone_virtual_network_link" "postgres" {
-  name                  = "link-postgres"
-  resource_group_name   = var.resource_group_name
-  private_dns_zone_name = azurerm_private_dns_zone.postgres.name
-  virtual_network_id    = azurerm_virtual_network.this.id
-}
-```
+One link resource per zone in the networking module.
 
-## Use in this project
+## In this project
 
-Links Postgres and Key Vault privatelink zones to the platform VNet.
-
-## Example to understand
-
-Connecting the internal phone book to this office building’s network.
+Required companion to both private DNS zones.

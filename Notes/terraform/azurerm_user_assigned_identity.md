@@ -1,27 +1,30 @@
 # azurerm_user_assigned_identity
 
-## Brief introduction
+## Introduction
 
-A standalone Azure AD identity you attach to resources (UAMI). Survives independently of a single VM/ACI lifecycle.
+A **user-assigned managed identity (UAMI)** is a standalone Azure AD identity you attach to one or more Azure resources. Unlike system-assigned, it can outlive a single resource and be reused.
 
-## Why we create it
+## Why we use it
 
-ACI needs an identity with `AcrPull` to pull the backend image without admin registry credentials.
+ACI needs to pull from ACR. Giving ACI a UAMI + `AcrPull` avoids embedding registry usernames/passwords in the container group definition.
+
+## Real-life example
+
+A **reusable contractor badge** kept in the equipment cage. Any machine (container group) that wears the badge can open the warehouse. If you replace the machine, you keep the same badge.
+
+## Connections in this project
+
+```
+UAMI (aci)
+  --attached--> azurerm_container_group.backend
+  --role AcrPull--> ACR
+  --> backend container can pull employee-app-backend image
+```
 
 ## How Terraform creates it
 
-```hcl
-resource "azurerm_user_assigned_identity" "aci" {
-  name                = "id-aci-backend"
-  resource_group_name = var.resource_group_name
-  location            = var.location
-}
-```
+Created in `terraform/modules/aci`, then role assignment + ACI identity block.
 
-## Use in this project
+## In this project
 
-Assigned to the ACI container group; role `AcrPull` on ACR.
-
-## Example to understand
-
-A reusable employee badge for the backend container group, not tied to a human user.
+Identity for private backend image pulls.

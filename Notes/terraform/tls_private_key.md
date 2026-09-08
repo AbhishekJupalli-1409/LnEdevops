@@ -1,12 +1,26 @@
 # tls_private_key
 
-## Brief introduction
+## Introduction
 
-Generates an SSH key pair (private + public) using the TLS provider.
+The TLS provider can generate SSH or TLS key pairs in Terraform. For Linux VMs, the **public** key is placed in `authorized_keys`; the **private** key is kept secret (often Key Vault).
 
-## Why we create it
+## Why we use it
 
-Linux VM admin login needs an SSH public key. Private key can be stored in Key Vault for break-glass access.
+The agent VM needs an admin SSH key. Generating it in Terraform avoids humans emailing keys around. Storing the private key in Key Vault supports break-glass SSH if needed.
+
+## Real-life example
+
+Cutting a new **house key** at provision time: public half filed in the lock (VM), private half locked in the office safe (Key Vault).
+
+## Connections in this project
+
+```
+tls_private_key.agent
+  public_key_openssh --> azurerm_linux_virtual_machine.agent admin SSH
+  private_key_pem    --> Key Vault secret (extra secrets)
+```
+
+Day-to-day agent setup uses VM Run Command + PAT for AzDO registration — SSH is for emergency access, not routine pipeline work.
 
 ## How Terraform creates it
 
@@ -17,12 +31,6 @@ resource "tls_private_key" "agent" {
 }
 ```
 
-Public key goes to the VM; private key often as a Key Vault secret.
+## In this project
 
-## Use in this project
-
-SSH key material for the private DevOps agent VM (`terraform/modules/agent-vm`).
-
-## Example to understand
-
-Terraform cuts a new house key: public half goes in the lock (VM), private half goes in the safe (Key Vault).
+Part of `terraform/modules/agent-vm`.

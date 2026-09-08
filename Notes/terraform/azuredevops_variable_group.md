@@ -1,29 +1,29 @@
 # azuredevops_variable_group
 
-## Brief introduction
+## Introduction
 
-Named set of pipeline variables (and secrets) shared across multiple pipelines — e.g. `empapp-shared-vars`.
+A **variable group** stores shared pipeline variables and secrets (ACR names, state storage account, PATs, etc.) reusable across many pipelines.
 
-## Why we create it
+## Why we use it
 
-Avoid duplicating ACR name, state storage names, tokens across seven YAML pipelines.
+Seven pipelines need the same settings. Duplicating values in each YAML causes drift and leaked secrets in PRs. One group (`empapp-shared-vars`) is the single place to update.
+
+## Real-life example
+
+A **shared whiteboard + locked drawer** in the project office: everyone reads the same ACR name; secrets sit in the locked drawer (secret variables).
+
+## Connections in this project
+
+```
+empapp-shared-vars
+  --> referenced by pipelines as: - group: empapp-shared-vars
+  --> feeds terraform backend config names, tokens, ACR info, etc.
+```
 
 ## How Terraform creates it
 
-```hcl
-resource "azuredevops_variable_group" "shared" {
-  project_id   = azuredevops_project.this.id
-  name         = "empapp-shared-vars"
-  allow_access = true
-  variable { name = "acrName" value = var.acr_name }
-  # secrets: azdoPersonalAccessToken, etc.
-}
-```
+`azuredevops_variable_group.shared`.
 
-## Use in this project
+## In this project
 
-Referenced as `- group: empapp-shared-vars` in pipeline YAML.
-
-## Example to understand
-
-A shared sticky-note board of settings every pipeline can read.
+Operational config hub for CI/CD.

@@ -1,26 +1,35 @@
 # azurerm_network_interface
 
-## Brief introduction
+## Introduction
 
-A **NIC** connects a VM to a subnet (private IP). Optionally can have public IPs (blocked here by policy).
+A **NIC** attaches a VM to a subnet and provides a private IP. Optionally it can reference a public IP — **not here**, because policy denies public IPs on NICs.
 
-## Why we create it
+## Why we use it
 
-The agent VM needs a private IP in `snet-agent` with **no** public IP.
+Every Azure VM needs a NIC. For the agent, the NIC must be on `snet-agent` with private IP only so the VM can reach private AKS and egress via NAT.
+
+## Real-life example
+
+The technician’s **desk network jack** on the workshop floor — internal network only, no personal public doorbell.
+
+## Connections in this project
+
+```
+snet-agent --> NIC (private IP) --> Agent VM
+NIC has NO public_ip_address_id
+Outbound: subnet NAT Gateway
+Inbound from Internet: none (by design)
+East-west: can reach private AKS API / other VNet services allowed by NSG
+```
 
 ## How Terraform creates it
 
 ```hcl
 resource "azurerm_network_interface" "agent" {
-  name                = "nic-agent"
-  # ip_configuration with subnet_id, private_ip only — no public_ip_address_id
+  # ip_configuration { subnet_id = agent_subnet; private IP }
 }
 ```
 
-## Use in this project
+## In this project
 
-Network attachment for the self-hosted Azure DevOps agent.
-
-## Example to understand
-
-Ethernet jack on the agent desk — internal network only.
+Network identity of the self-hosted Azure DevOps agent.

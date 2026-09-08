@@ -2,24 +2,35 @@
 
 **File:** `pipelines/app-frontend-azure-pipelines.yml`
 
-## Brief introduction
+## Introduction
 
-CI for the React employee frontend: build container image and push to ACR as `employee-app-frontend`.
+CI pipeline for the React **employee frontend**. It builds a container image and pushes it to ACR as something like `employee-app-frontend`.
 
-## Why we create it
+Kubernetes does not build your React app; it only **runs** an image. This pipeline is the factory that produces that image.
 
-AKS (via Flux) pulls the frontend image from ACR. Without CI, image tags never update.
+## Why we use it
 
-## How it works
+Every UI change must become an immutable image in ACR so Flux/AKS can roll out a known version. Building on developer laptops alone does not give a shared, tagged artifact history.
 
-- Pool: `ubuntu-latest`
-- Builds from the frontend app repo/path (sample React app wiring)
-- Pushes to ACR using the ACR service connection
+## Real-life example
 
-## Use in this project
+A **bakery packaging line**: dough (source) → sealed packaged cake (image) → warehouse shelf (ACR) → later delivered to storefront shelves (AKS pods via Flux).
 
-Supplies images referenced in `gitops/.../apps/frontend/deployment.yaml` (with `${ACR_LOGIN_SERVER}` substituted by Flux).
+## Connections
 
-## Example to understand
+```
+GitHub/app source
+  --> this pipeline (ubuntu-latest)
+        --> docker build/push --> ACR
+              --> Flux Deployment frontend references ${ACR_LOGIN_SERVER}/employee-app-frontend:...
+                    --> AKS kubelet AcrPull pulls image
+                          --> users hit /emp via ingress
 
-Assembly line: source → Docker image → warehouse (ACR) → later delivered to AKS by Flux.
+Frontend pods still call ACI backend privately for API data.
+```
+
+Does **not** need private pool (no kubectl).
+
+## In this project
+
+Supplies images for `gitops/.../apps/frontend/deployment.yaml`.

@@ -2,25 +2,56 @@
 
 **File:** `pipelines/infra-terraform-azure-pipelines.yml`
 
-## Brief introduction
+## Introduction
 
-Runs `terraform init`, `validate`, `plan`, then a gated `apply` for `terraform/envs/centralindia`.
+This pipeline runs Terraform against `terraform/envs/centralindia`: download Terraform, `init` with remote state, `validate`, `plan`, then a **gated** `apply` (environment approval).
 
-## Why we create it
+It creates or updates almost all Azure resources in the architecture diagram: policy, networking, ACR, private AKS, Postgres, Key Vault, ACI, agent VM, and optionally Azure DevOps wiring.
 
-Infrastructure as Code should be applied from CI with review (environment `empapp-infra-production`), not only from laptops.
+## Why we use it
 
-## How it works
+Infrastructure should change through reviewed automation, not only laptop applies. The plan stage shows the diff; the apply stage requires approval (`empapp-infra-production`), mirroring real change management.
 
-- Trigger: changes under `terraform/**` on `main`
-- Pool: `ubuntu-latest` (talks to Azure ARM — no need for private AKS)
-- Prerequisite: `terraform/bootstrap` already created state storage
-- Uses variable group for state account names + AzDO PAT (azuredevops provider / agent registration)
+It can run on `ubuntu-latest` because it talks to **Azure Resource Manager APIs**, not to the private Kubernetes API.
 
-## Use in this project
+## Real-life example
 
-Creates/updates policies, networking, ACR, AKS, Postgres, Key Vault, ACI, agent VM, optional AzDO resources.
+A **city construction permit workflow**:
 
-## Example to understand
+1. Architects submit blueprints (PR / terraform change).  
+2. Planning office prints a diff of what will be built (`terraform plan`).  
+3. Inspector signs off (environment approval).  
+4. Crews build (`terraform apply`).  
 
-Like a construction permit process: **plan** shows the blueprint diff; **apply** builds only after approval.
+They do not need to enter the finished mall’s locked manager office; they work through city permitting systems (ARM).
+
+## Connections
+
+```
+Prerequisite: bootstrap Storage Account/container (remote state)
+
+Pipeline uses:
+  - ARM service connection
+  - empapp-shared-vars (state RG/account/container, AzDO PAT, ...)
+
+Creates/updates:
+  - Policy, VNet/subnets/NSG/NAT/DNS
+  - ACR, AKS (+ AcrPull), Postgres (+ DB), Key Vault (+ PE + secrets)
+  - ACI backend (+ UAMI + AcrPull)
+  - Agent VM (+ run command → private pool agent Online)
+  - optional AzDO project/endpoints/pipelines
+
+Enables next steps:
+  - App pipelines can push to ACR
+  - Private-pool pipelines can reach AKS API via Agent VM
+```
+
+## How it works (shape)
+
+- Trigger: `main` + path `terraform/**`  
+- Stage Plan on `ubuntu-latest`  
+- Stage Apply with environment gate  
+
+## In this project
+
+Primary “build the cloud” automation; see also `docs/RUNBOOK.md` step 1.

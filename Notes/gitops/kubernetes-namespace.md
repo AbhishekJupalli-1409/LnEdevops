@@ -1,26 +1,29 @@
 # Kubernetes Namespace
 
-**File:** `gitops/clusters/aks-centralindia/apps/namespace.yaml`
+**File:** `gitops/.../apps/namespace.yaml`
 
-## Brief introduction
+## Introduction
 
-A **Namespace** partitions cluster resources (names, RBAC, quotas) — like a folder for objects.
+A **Namespace** is a virtual cluster slice: it scopes resource names, and is where you attach RBAC, network policies, and quotas. Objects in `apps` are separate from `default`, `kube-system`, `flux-system`, `ingress-nginx`.
 
-## Why we create it
+## Why we use it
 
-Isolate app workloads under `apps` instead of dumping into `default`.
+Dumping app Deployments into `default` mixes them with experiments and makes RBAC/cleanup harder. `apps` is the dedicated drawer for user workloads.
 
-## How it is created
+## Real-life example
 
-Applied by Flux via the apps Kustomization (not Terraform).
+A labeled **tenant floor** in an office tower: “Apps Department.” Ingress and Flux live in other floors/wings.
 
-```yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: apps
+## Connections
+
+```
+Namespace apps
+  ├── Deployment frontend / todolist
+  ├── Service frontend-service / todolist-service
+  └── Ingress apps-ingress (often in apps ns)
+Flux applies all of these together via apps Kustomization
 ```
 
-## Example to understand
+## In this project
 
-A labeled drawer in the cluster filing cabinet where frontend/todolist objects live.
+Created by Flux (not Terraform).

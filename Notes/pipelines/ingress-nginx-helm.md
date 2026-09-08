@@ -1,25 +1,39 @@
 # Pipeline: ingress-nginx Helm
 
-**File:** `pipelines/ingress-nginx-helm-azure-pipelines.yml`
+**File:** `pipelines/ingress-nginx-helm-azure-pipelines.yml`  
+**Values:** `helm/nginx-ingress-values.yaml`
 
-## Brief introduction
+## Introduction
 
-Installs/upgrades **ingress-nginx** on private AKS using Helm and `helm/nginx-ingress-values.yaml`, then prints the public LoadBalancer IP.
+Installs or upgrades the official **ingress-nginx** Helm chart onto private AKS, then prints the **public LoadBalancer EXTERNAL-IP**. That IP is the only public entry users need.
 
-## Why we create it
+## Why we use it
 
-Apps need one public entry IP with path routing (`/emp`, `/to-do`). Helm is the supported way to install ingress-nginx; must run where the private API is reachable.
+Kubernetes Ingress objects are only wishes until a controller exists. Helm is the standard way to install ingress-nginx with durable values (replica count, resources, LB service).
 
-## How it works
+Must use **`empapp-private-pool`** because Helm talks to the **private AKS API**.
 
-- Pool: **`empapp-private-pool`** (agent VM in VNet)
-- `helm upgrade --install` with project values (2 replicas, LoadBalancer, small resources)
-- Outputs external IP for CORS / WHITELIST and for humans
+## Real-life example
 
-## Use in this project
+Installing the mall’s **main revolving door and directory board hardware**.
 
-Creates the public front door; Ingress objects in GitOps then attach routes to it.
+Until the door exists, hanging paper signs (`Ingress` YAML) does nothing. After install, the city assigns a street number (public LB IP). Later GitOps hangs the shop nameplates (`/emp`, `/to-do`) on that door.
 
-## Example to understand
+## Connections
 
-Installing the mall’s main gate (ingress controller). GitOps later hangs store signs (`/emp`, `/to-do`) on that gate.
+```
+Agent VM (private pool)
+  --> helm upgrade --install ingress-nginx -f helm/nginx-ingress-values.yaml
+        --> controller pods + Service type LoadBalancer
+              --> Azure allocates public IP
+                    --> Users HTTPS to that IP
+                    --> Ingress resource (from Flux) routes paths to Services
+
+Outputs IP used for:
+  - browser testing
+  - frontend_origin / WHITELIST_URLS / CORS on ACI backend
+```
+
+## In this project
+
+Creates the public front door; does not deploy apps (Flux does).

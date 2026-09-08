@@ -1,29 +1,28 @@
 # azuredevops_serviceendpoint_github
 
-## Brief introduction
+## Introduction
 
-Connects Azure Pipelines to GitHub (often via PAT) to checkout app repos or for Flux-related GitHub access patterns.
+Connects Azure DevOps to **GitHub** (commonly via PAT) so pipelines can checkout GitHub repos or automate GitHub-related steps.
 
-## Why we create it
+## Why we use it
 
-App pipelines may live against GitHub repos (sample apps); PAT-backed connection authenticates clones.
+Sample apps and/or GitOps-related flows may live on GitHub. AzDO needs credentials to clone or interact without interactive login.
+
+## Real-life example
+
+A **library card** letting the CI clerk borrow source books from the GitHub library.
+
+## Connections in this project
+
+```
+AzDO <--GitHub endpoint--> GitHub repos (app sources / platform repo)
+Flux bootstrap also needs GitHub token (pipeline variable) to install GitOps sync
+```
 
 ## How Terraform creates it
 
-```hcl
-resource "azuredevops_serviceendpoint_github" "github" {
-  project_id            = azuredevops_project.this.id
-  service_endpoint_name = "empapp-github"
-  auth_personal {
-    personal_access_token = var.github_pat
-  }
-}
-```
+`azuredevops_serviceendpoint_github` with `auth_personal`.
 
-## Use in this project
+## In this project
 
-GitHub integration for pipeline source / related automation.
-
-## Example to understand
-
-Stored GitHub credentials so AzDO can read repositories without interactive login.
+Source control bridge for pipelines that aren’t pure AzDO repos.

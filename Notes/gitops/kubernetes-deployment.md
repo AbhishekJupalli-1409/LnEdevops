@@ -1,29 +1,37 @@
 # Kubernetes Deployment
 
-**Files:**
+**Files:** `apps/frontend/deployment.yaml`, `apps/todolist/deployment.yaml`
 
-- `apps/frontend/deployment.yaml`
-- `apps/todolist/deployment.yaml`
+## Introduction
 
-## Brief introduction
+A **Deployment** declares a desired number of identical pods (replicas), the container image, ports, and environment variables. The controller creates a ReplicaSet and keeps pods healthy/replaced on failure.
 
-A **Deployment** declares desired pods (replicas, image, env) and a ReplicaSet controller keeps that many pods running.
+## Why we use it
 
-## Why we create it
+We need reliable web processes with more than one replica for basic resilience and rolling updates when the image tag changes.
 
-Run React frontend and Flask todolist with 2 replicas each for basic availability.
+## Real-life example
 
-## How it is created (GitOps)
+A job order: “Always keep **two cashiers** of type Frontend on shift.” If one goes on break (pod crash), hire a replacement automatically. Changing the uniform/version (image tag) triggers a controlled shift handover (rolling update).
 
-Flux applies YAML. Image uses substituted ACR server, e.g. `${ACR_LOGIN_SERVER}/employee-app-frontend:...`. Frontend env points API base URL at ACI private IP/port.
+## Connections
 
-## Use in this project
+```
+Deployment frontend
+  image: ${ACR_LOGIN_SERVER}/employee-app-frontend:...
+  env: API base URL --> http://BACKEND_PRIVATE_IP:BACKEND_PORT (ACI)
+  <-- pulled via AcrPull
+  --> selected by Service frontend-service
+        --> Ingress /emp
 
-| Deployment | App | Notes |
-|------------|-----|-------|
-| `frontend` | Employee React UI | Talks to private backend |
-| `todolist` | Flask Todo List | Port 5000 in container |
+Deployment todolist
+  image: ${ACR_LOGIN_SERVER}/todo-list-app:...
+  container port 5000
+  --> Service todolist-service --> Ingress /to-do and /static
+```
 
-## Example to understand
+Substitutions come from Flux `cluster-vars`. Images come from app pipelines → ACR.
 
-A job description: “Always keep 2 cashiers of type frontend.” If one leaves (pod crash), hire a replacement automatically.
+## In this project
+
+Only these two app Deployments on AKS (plus system components from Helm/Flux).

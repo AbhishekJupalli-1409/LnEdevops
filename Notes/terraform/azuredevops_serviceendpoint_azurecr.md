@@ -1,28 +1,29 @@
 # azuredevops_serviceendpoint_azurecr
 
-## Brief introduction
+## Introduction
 
-Service connection for pushing/pulling images to Azure Container Registry from pipelines.
+Service connection specialized for **Azure Container Registry** so Docker tasks can log in and push/pull images.
 
-## Why we create it
+## Why we use it
 
-App build pipelines need to `docker push` to ACR.
+App CI pipelines need a reliable way to authenticate to ACR without baking admin passwords into scripts.
+
+## Real-life example
+
+Warehouse **shipping dock credentials** for the factory (CI) to drop off new product boxes (images).
+
+## Connections in this project
+
+```
+app-frontend / app-backend / app-todolist pipelines
+  --push--> ACR (via ACR service connection)
+              --pull--> AKS / ACI (via AcrPull identities — separate from this endpoint)
+```
 
 ## How Terraform creates it
 
-```hcl
-resource "azuredevops_serviceendpoint_azurecr" "acr" {
-  project_id                = azuredevops_project.this.id
-  service_endpoint_name     = "empapp-acr"
-  azurecr_name              = var.acr_name
-  # subscription / RG details
-}
-```
+`azuredevops_serviceendpoint_azurecr.acr`.
 
-## Use in this project
+## In this project
 
-Frontend, backend, and todolist image publish steps.
-
-## Example to understand
-
-Pipeline’s badge to open the image warehouse and upload new builds.
+CI push path into the image hub.

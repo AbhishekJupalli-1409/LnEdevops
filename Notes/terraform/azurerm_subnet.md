@@ -1,42 +1,45 @@
 # azurerm_subnet
 
-## Brief introduction
+## Introduction
 
-A **subnet** carves a CIDR slice of the VNet for a specific purpose. Some Azure services require **delegated** subnets.
+A **subnet** is a CIDR slice of a VNet reserved for a purpose. Some Azure services require a **delegated** subnet (the subnet is reserved so that service can inject network interfaces).
 
-## Why we create it
+## Why we use it
 
-Isolation and service requirements: AKS nodes, ACI, Postgres Flexible Server, Private Endpoints, and the agent VM each need their own subnet.
+Mixing AKS nodes, databases, and agent VMs in one flat subnet makes NSG rules messy and breaks service requirements (ACI and Postgres Flexible Server need delegation). Separate subnets give clear blast boundaries and correct platform plumbing.
+
+## Real-life example
+
+Campus **buildings / floors**:
+
+| Subnet | Floor analogy |
+|--------|----------------|
+| snet-aks | Customer-facing shop floor + private manager office (API) |
+| snet-aci | Back-office API room |
+| snet-postgres | Records archive (staff only) |
+| snet-pe | Vault tunnel room |
+| snet-agent | On-site technician workshop with outbound loading dock (NAT) |
+
+Delegation is like leasing an entire floor exclusively to one vendor (Postgres or ACI) so they can install their equipment.
+
+## Connections in this project
+
+```
+snet-aks       <-- AKS node pool
+snet-aci       <-- azurerm_container_group (backend)
+                 <-- NSG: allow from AKS CIDR on backend port
+snet-postgres  <-- azurerm_postgresql_flexible_server (delegated)
+snet-pe        <-- azurerm_private_endpoint (Key Vault)
+snet-agent     <-- Agent VM NIC
+                 <-- NAT Gateway association (outbound)
+```
+
+**Important design note:** Postgres uses **VNet integration** (delegated subnet), not “public server + Private Endpoint.” That keeps **zero public path** to the database (see architecture notes).
 
 ## How Terraform creates it
 
-Five subnets in `terraform/modules/networking`:
+Five `azurerm_subnet` resources in `terraform/modules/networking`, with `delegation` blocks on ACI and Postgres.
 
-| Name | Role | Special |
-|------|------|---------|
-| `snet-aks` | AKS nodes | — |
-| `snet-aci` | Backend ACI | Delegated to Container Instances |
-| `snet-postgres` | Postgres | Delegated to Flexible Servers (VNet integration) |
-| `snet-pe` | Private Endpoints | Key Vault PE |
-| `snet-agent` | DevOps agent VM | Outbound via NAT |
+## In this project
 
-```hcl
-resource "azurerm_subnet" "aci" {
-  name                 = "snet-aci"
-  # ...
-  delegation {
-    name = "aci-delegation"
-    service_delegation {
-      name = "Microsoft.ContainerInstance/containerGroups"
-    }
-  }
-}
-```
-
-## Use in this project
-
-Places each workload in the right network segment with NSGs / NAT where needed.
-
-## Example to understand
-
-Delegation is like reserving a parking floor only for a specific service — Postgres Flexible Server “owns” `snet-postgres` and injects itself there (stronger private access than a public server + PE).
+Foundation for every private data path in the diagram.

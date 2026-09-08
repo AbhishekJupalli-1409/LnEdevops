@@ -1,36 +1,38 @@
 # azurerm_role_assignment
 
-## Brief introduction
+## Introduction
 
-Assigns an Azure RBAC role (e.g. `AcrPull`, Key Vault Secrets Officer) to an identity on a scope.
+Azure **RBAC role assignment** grants a security principal (user, SP, managed identity) a role on a scope (subscription, RG, resource).
 
-## Why we create it
+Examples: `AcrPull`, `Key Vault Secrets Officer`.
 
-Passwordless access: AKS/ACI pull images; Terraform deployer writes Key Vault secrets — without embedding registry passwords.
+## Why we use it
+
+Passwordless automation. Instead of putting ACR admin passwords in ACI/AKS, identities get `AcrPull`. Instead of portal-only secret entry, the Terraform identity can write Key Vault secrets.
+
+## Real-life example
+
+Issuing **employee badges with door permissions**:
+
+- Badge “Warehouse Puller” opens the image warehouse (ACR).  
+- Badge “Vault Clerk” can deposit envelopes (Key Vault secrets).  
+Badges beat sharing one master key in Slack.
+
+## Connections in this project
+
+```
+AKS kubelet identity --AcrPull--> ACR
+ACI user-assigned identity --AcrPull--> ACR
+Terraform apply identity --Secrets Officer--> Key Vault
+  --> can create postgres password / connection string / SSH key secrets
+```
+
+Without AcrPull, pods/ACI fail with image pull errors even if the image exists.
 
 ## How Terraform creates it
 
-Examples:
+Multiple `azurerm_role_assignment` resources across `aks`, `aci`, and `keyvault` modules.
 
-```hcl
-# AKS kubelet → ACR
-resource "azurerm_role_assignment" "aks_acr_pull" {
-  scope                = var.acr_id
-  role_definition_name = "AcrPull"
-  principal_id         = azurerm_kubernetes_cluster.this.kubelet_identity[0].object_id
-}
+## In this project
 
-# ACI UAMI → ACR
-resource "azurerm_role_assignment" "aci_acr_pull" { ... }
-
-# Deployer → Key Vault Secrets Officer
-resource "azurerm_role_assignment" "deployer_secrets_officer" { ... }
-```
-
-## Use in this project
-
-Identity-based security for ACR pulls and Key Vault secret management.
-
-## Example to understand
-
-Giving a badge (“AcrPull”) to a robot identity so it can open the image warehouse door — no shared key under the mat.
+Security glue between identities and data/image planes.

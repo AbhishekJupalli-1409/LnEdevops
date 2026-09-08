@@ -1,29 +1,29 @@
 # azuredevops_serviceendpoint_azurerm
 
-## Brief introduction
+## Introduction
 
-Service connection from AzDO to an Azure subscription (ARM) so pipelines can run AzureCLI/Terraform against your cloud.
+A **service connection** to Azure Resource Manager so pipeline tasks (`AzureCLI@2`, Terraform against Azure, etc.) can authenticate to a subscription.
 
-## Why we create it
+## Why we use it
 
-Infra and ACI deploy pipelines need authenticated Azure access.
+Infra plan/apply and ACI restart need Azure permissions without pasting SP secrets into every YAML file.
+
+## Real-life example
+
+A **corporate credit card on file** for the construction crew: pipelines can purchase/modify Azure resources within allowed limits (RBAC on the SP).
+
+## Connections in this project
+
+```
+Pipeline (infra-terraform, aci-backend-deploy, ...)
+  --> uses ARM service connection (e.g. empapp-arm)
+        --> Azure APIs create/update RG, AKS, ACI, ...
+```
 
 ## How Terraform creates it
 
-```hcl
-resource "azuredevops_serviceendpoint_azurerm" "subscription" {
-  project_id                             = azuredevops_project.this.id
-  service_endpoint_name                  = "empapp-arm"
-  azurerm_spn_tenantid                   = var.tenant_id
-  azurerm_subscription_id                = var.subscription_id
-  azurerm_subscription_name              = var.subscription_name
-}
-```
+`azuredevops_serviceendpoint_azurerm.subscription` in azuredevops module.
 
-## Use in this project
+## In this project
 
-Used by Terraform plan/apply and other Azure tasks (`empapp-arm` by default).
-
-## Example to understand
-
-A saved “login to Azure” credential inside the pipeline project.
+Default name often `empapp-arm` (parameterized in YAML).

@@ -1,34 +1,30 @@
 # azurerm_key_vault_secret
 
-## Brief introduction
+## Introduction
 
-Stores a named secret value inside Key Vault.
+A named secret value stored inside Key Vault (passwords, connection strings, tokens, PEM keys).
 
-## Why we create it
+## Why we use it
 
-Persist generated credentials for later use (apps, operators, docs generation) without committing them to git.
+Terraform generates sensitive values; Key Vault persists them for operators and downstream automation without committing secrets to git.
+
+## Real-life example
+
+Labeled envelopes in the vault: “Postgres admin,” “DB URL,” “Agent SSH key.” Each envelope is an `azurerm_key_vault_secret`.
+
+## Connections in this project
+
+```
+random_password / connection string / tls private key
+  --> azurerm_key_vault_secret.*
+        --> retrieved later by scripts/generate-credentials-doc.sh or operators
+ACI/Postgres wiring uses values at deploy time from Terraform outputs/vars
+```
 
 ## How Terraform creates it
 
-```hcl
-resource "azurerm_key_vault_secret" "postgres_admin_password" {
-  name         = "postgres-admin-password"
-  value        = var.postgres_admin_password
-  key_vault_id = azurerm_key_vault.this.id
-}
+Fixed secrets plus `for_each` extras in the keyvault module.
 
-resource "azurerm_key_vault_secret" "extra" {
-  for_each = var.extra_secrets
-  name     = each.key
-  value    = each.value
-  # e.g. agent SSH private key
-}
-```
+## In this project
 
-## Use in this project
-
-Postgres admin password, connection string, and extra secrets (agent key).
-
-## Example to understand
-
-Labeled envelopes in the safe: `postgres-admin-password`, `postgres-connection-string`, …
+Operational retrieval point for generated credentials.

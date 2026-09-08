@@ -1,12 +1,25 @@
 # azurerm_storage_container
 
-## Brief introduction
+## Introduction
 
-A **blob container** is a folder-like namespace inside a storage account. Blobs (files) live inside containers.
+A **blob container** is a namespace (folder-like) inside a storage account. Blobs (files) live inside containers. Access can be private or public; Terraform state must be **private**.
 
-## Why we create it
+## Why we use it
 
-Terraform’s `azurerm` backend needs a dedicated private container for the state file.
+The AzureRM Terraform backend expects: storage account + container + state file key. The container separates tfstate blobs from any other blobs you might store later.
+
+## Real-life example
+
+Inside the blueprint vault building (storage account), the room labeled **“TFSTATE only”** (container). Other rooms might later hold logs or backups; you do not mix them so permissions stay clear.
+
+## Connections in this project
+
+```
+Storage Account
+  └── container "tfstate" (private)
+        └── blob key e.g. centralindia.terraform.tfstate
+              └── locked/read by terraform plan/apply (local + Azure Pipelines)
+```
 
 ## How Terraform creates it
 
@@ -18,10 +31,6 @@ resource "azurerm_storage_container" "tfstate" {
 }
 ```
 
-## Use in this project
+## In this project
 
-Holds the remote state blob for the centralindia environment.
-
-## Example to understand
-
-Storage account = hard drive; container `tfstate` = folder named “terraform-state”; the `.tfstate` file is the document inside.
+Created once by bootstrap; never used for application data.

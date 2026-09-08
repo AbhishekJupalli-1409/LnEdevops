@@ -2,24 +2,31 @@
 
 **File:** `pipelines/app-backend-azure-pipelines.yml`
 
-## Brief introduction
+## Introduction
 
-CI for the Node/Sequelize backend: ensure Postgres driver deps, build image, push as `employee-app-backend` to ACR.
+CI for the Node/Sequelize **employee backend**. Builds/pushes `employee-app-backend` to ACR. May patch in Postgres drivers (`pg`, `pg-hstore`) so the image can talk to Flexible Server.
 
-## Why we create it
+## Why we use it
 
-ACI runs the backend from ACR. New code must become a new image for ACI to pick up (restart/deploy pipeline).
+ACI runs whatever image you give it. Without CI, the private API never receives new code. Separating backend CI from frontend CI lets API and UI version independently.
 
-## How it works
+## Real-life example
 
-- Pool: `ubuntu-latest`
-- May add `pg` / `pg-hstore` for Postgres
-- Push to ACR
+Manufacturing **back-office equipment** (API appliances) stored in the same warehouse (ACR) as storefront displays, but delivered to the staff corridor (ACI), not the shop floor (AKS).
 
-## Use in this project
+## Connections
 
-Image consumed by `azurerm_container_group` (private ACI), not by Flux.
+```
+Backend source
+  --> pipeline --> ACR (employee-app-backend)
+        --> ACI container group pulls via UAMI AcrPull
+              --> ACI uses Postgres connection (private)
+              --> Frontend pods call ACI private IP
 
-## Example to understand
+Not managed by Flux. Refresh/restart often via aci-backend-deploy pipeline
+or terraform apply when env (CORS/WHITELIST_URLS) changes.
+```
 
-Same assembly line as frontend, but the “customer” is ACI inside the VNet instead of Kubernetes.
+## In this project
+
+Image producer for `azurerm_container_group.backend`.
