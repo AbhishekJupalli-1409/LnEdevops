@@ -10,11 +10,10 @@ variable "dns_prefix" {
   default = "empapp-aks"
 }
 
-# Cheapest commonly-available AKS node size for free/learning subscriptions.
-# Upgrade to Standard_D2s_v3 if the region rejects B-series for AKS.
+# Cheapest burstable AKS node size for free/learning in centralindia.
 variable "node_vm_size" {
   type    = string
-  default = "Standard_B2s"
+  default = "Standard_B2ts_v2"
 }
 
 variable "node_count" {
