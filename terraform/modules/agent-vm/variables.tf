@@ -11,7 +11,7 @@ variable "vm_name" {
 # Smallest burstable size that still runs kubectl/helm/flux for learning/free tier.
 variable "vm_size" {
   type    = string
-  default = "Standard_B1s"
+  default = "Standard_B2s_v2"
 }
 
 variable "admin_username" {

@@ -86,6 +86,11 @@ stages:
                   -backend-config="container_name=$(tfStateContainer)" \
                   -backend-config="key=centralindia.terraform.tfstate"
                 terraform validate
+                # Previous failed applies can leave aks-empapp-cin in Azure
+                # without recording it in state. Import before plan so the
+                # saved plan updates the cluster instead of trying to create it.
+                chmod +x "$(Build.SourcesDirectory)/scripts/terraform-import-existing-aks.sh"
+                "$(Build.SourcesDirectory)/scripts/terraform-import-existing-aks.sh"
 
           - task: AzureCLI@2
             displayName: 'terraform plan'
@@ -174,6 +179,8 @@ stages:
                         -backend-config="storage_account_name=$(tfStateStorageAccount)" \
                         -backend-config="container_name=$(tfStateContainer)" \
                         -backend-config="key=centralindia.terraform.tfstate"
+                      chmod +x "$(Build.SourcesDirectory)/scripts/terraform-import-existing-aks.sh"
+                      "$(Build.SourcesDirectory)/scripts/terraform-import-existing-aks.sh"
                       terraform apply -auto-approve "$(Pipeline.Workspace)/tfplan/tfplan"
                       terraform output -json > tf-outputs.json
                 - publish: '$(tfWorkingDir)/tf-outputs.json'

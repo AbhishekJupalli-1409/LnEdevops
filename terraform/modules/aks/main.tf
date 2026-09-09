@@ -14,6 +14,8 @@ resource "azurerm_kubernetes_cluster" "this" {
   private_dns_zone_id        = "System"
   sku_tier                   = "Free"
   tags                       = var.tags
+  # Pin the managed RG name so it matches the policy not_scopes exemption.
+  node_resource_group       = "MC_${var.resource_group_name}_${var.cluster_name}_${var.location}"
 
   default_node_pool {
     name           = "system"
@@ -35,6 +37,12 @@ resource "azurerm_kubernetes_cluster" "this" {
     pod_cidr           = var.pod_cidr
     service_cidr       = var.service_cidr
     dns_service_ip     = var.dns_service_ip
+  }
+
+  lifecycle {
+    # After import, Azure has a concrete version while config leaves this
+    # null (let Azure pick). Ignore so we do not replace the cluster.
+    ignore_changes = [kubernetes_version]
   }
 }
 

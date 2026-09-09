@@ -15,9 +15,10 @@ variable "dns_prefix" {
 # SystemPoolSkuTooLow - so this must stay on a D-series. Standard_D2s_v3
 # (2 vCPU / 8 GB) is the cheapest reliable, widely-available valid size in
 # centralindia. Pair with node_count = 1 to keep the cost minimal.
+# Do not set this to Standard_B2s / B2s_v2 — that SKU is only for the agent VM.
 variable "node_vm_size" {
   type    = string
-  default = "Standard_B2s_v2"
+  default = "Standard_D2s_v3"
 }
 
 variable "node_count" {
