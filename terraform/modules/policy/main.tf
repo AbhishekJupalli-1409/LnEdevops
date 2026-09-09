@@ -30,6 +30,7 @@ resource "azurerm_subscription_policy_assignment" "require_tag_business_unit" {
   policy_definition_id = "/providers/Microsoft.Authorization/policyDefinitions/871b6d14-10aa-478d-b590-94f262ecfa99"
   display_name         = "Require 'Business Unit' tag"
   description          = "Denies creation of any resource that does not carry a 'Business Unit' tag."
+  not_scopes           = var.excluded_scopes
 
   parameters = jsonencode({
     tagName = { value = "Business Unit" }
@@ -42,6 +43,7 @@ resource "azurerm_subscription_policy_assignment" "require_tag_cost_center" {
   policy_definition_id = "/providers/Microsoft.Authorization/policyDefinitions/871b6d14-10aa-478d-b590-94f262ecfa99"
   display_name         = "Require 'Cost Center' tag"
   description          = "Denies creation of any resource that does not carry a 'Cost Center' tag."
+  not_scopes           = var.excluded_scopes
 
   parameters = jsonencode({
     tagName = { value = "Cost Center" }

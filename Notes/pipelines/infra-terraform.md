@@ -67,7 +67,11 @@ To keep this learning stack as small as possible:
 - **ACR**: Basic SKU. **Key Vault**: standard. **ACI**: 1 vCPU / 1.5 GB.
 - **Policy assignments** are off by default (`enable_policy_assignments =
   false`) so a service principal without *Resource Policy Contributor* can
-  still apply (avoids the `policyAssignments/write` 403).
+  still apply (avoids the `policyAssignments/write` 403). Once that role is
+  granted you can set it `true`; the Require-a-tag Deny policies then exempt
+  AKS's managed `MC_...` resource group (`excluded_scopes`), because AKS
+  creates its VMSS / load-balancer / public IP there untagged and would
+  otherwise be blocked with `RequestDisallowedByPolicy`.
 
 Genuinely-free Azure services do **not** cover AKS nodes, the agent VM, the
 NAT gateway, or Postgres Flexible Server — these always bill something even

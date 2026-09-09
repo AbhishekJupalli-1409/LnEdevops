@@ -3,6 +3,16 @@ locals {
     "Business Unit" = var.business_unit
     "Cost Center"   = var.cost_center
   }
+
+  aks_cluster_name = "aks-empapp-cin"
+
+  # AKS provisions its node VMSS (and, later, the ingress LoadBalancer's
+  # public IP) into its own auto-managed "MC_" resource group. Those
+  # resources are created untagged, so the Require-a-tag Deny policies would
+  # block cluster creation (RequestDisallowedByPolicy). Exempt that managed
+  # RG from the policy assignments. Name follows Azure's default pattern
+  # MC_<rg>_<cluster>_<location>.
+  aks_node_resource_group_id = "/subscriptions/${var.subscription_id}/resourceGroups/MC_${var.resource_group_name}_${local.aks_cluster_name}_${var.location}"
 }
 
 resource "azurerm_resource_group" "this" {
@@ -28,6 +38,12 @@ module "policy" {
   count             = var.enable_policy_assignments ? 1 : 0
   source            = "../../modules/policy"
   allowed_locations = var.allowed_locations
+
+  # Exempt AKS's managed "MC_" resource group: its VMSS / LB / public IP are
+  # created untagged by AKS itself and would otherwise be denied by the
+  # Require-a-tag policies. Static string (not a module.aks reference) to
+  # avoid an apply-ordering cycle with the cluster it must not block.
+  excluded_scopes = [local.aks_node_resource_group_id]
 }
 
 # --- 2. Networking ---------------------------------------------------------
@@ -51,12 +67,17 @@ module "acr" {
 # --- 4. AKS (private cluster) ------------------------------------------------
 module "aks" {
   source               = "../../modules/aks"
-  cluster_name         = "aks-empapp-cin"
+  cluster_name         = local.aks_cluster_name
   resource_group_name  = azurerm_resource_group.this.name
   location             = azurerm_resource_group.this.location
   tags                 = local.tags
   aks_subnet_id        = module.networking.aks_subnet_id
   acr_id               = module.acr.id
+
+  # Ensure the tag-policy exemption for the MC_ resource group is applied
+  # before AKS creates its (untagged) node VMSS, otherwise the cluster can
+  # be denied by the Require-a-tag policies during a parallel apply.
+  depends_on = [module.policy]
 }
 
 # --- 5. PostgreSQL flexible server + employee DB -----------------------------
