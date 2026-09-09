@@ -10,15 +10,16 @@ variable "dns_prefix" {
   default = "empapp-aks"
 }
 
-# Small compute per the "D2*/B1*" guidance.
+# Cheapest commonly-available AKS node size for free/learning subscriptions.
+# Upgrade to Standard_D2s_v3 if the region rejects B-series for AKS.
 variable "node_vm_size" {
   type    = string
-  default = "Standard_D2s_v3"
+  default = "Standard_B2s"
 }
 
 variable "node_count" {
   type    = number
-  default = 2
+  default = 1
 }
 
 variable "kubernetes_version" {

@@ -24,6 +24,9 @@ azdo_agent_pool_name       = "empapp-private-pool"
 
 # --- Optional: also let Terraform manage the Azure DevOps project/pipelines/
 # service connections (module.azuredevops) ----------------------------------
+# SP now has Resource Policy Contributor — set true to create the 3 policies.
+enable_policy_assignments = true
+
 manage_azure_devops = false
 # azdo_github_org                    = "your-github-org-or-user"
 # azdo_github_service_connection_pat = ""

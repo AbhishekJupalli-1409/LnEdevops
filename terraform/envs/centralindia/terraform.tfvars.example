@@ -22,6 +22,11 @@ azdo_org_service_url       = "https://dev.azure.com/your-org"
 azdo_personal_access_token = "" # never commit a PAT; set TF_VAR_azdo_personal_access_token or pipeline secret azdoPersonalAccessToken
 azdo_agent_pool_name       = "empapp-private-pool"
 
+# Requires SP role "Resource Policy Contributor". Leave false on free/learning
+# until: az role assignment create --assignee <sp-object-id> \
+#   --role "Resource Policy Contributor" --scope /subscriptions/<sub-id>
+enable_policy_assignments = false
+
 # --- Optional: also let Terraform manage the Azure DevOps project/pipelines/
 # service connections (module.azuredevops) ----------------------------------
 manage_azure_devops = false

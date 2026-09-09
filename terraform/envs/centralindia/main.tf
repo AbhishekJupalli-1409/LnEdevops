@@ -22,7 +22,10 @@ resource "random_string" "suffix" {
 }
 
 # --- 1. Subscription-scope guardrails -----------------------------------
+# Skipped by default (enable_policy_assignments=false) so free/learning
+# service principals without Resource Policy Contributor can still apply.
 module "policy" {
+  count             = var.enable_policy_assignments ? 1 : 0
   source            = "../../modules/policy"
   allowed_locations = var.allowed_locations
 }

@@ -55,3 +55,9 @@ Enables next steps:
 ## In this project
 
 Primary “build the cloud” automation; see also `docs/RUNBOOK.md` step 1.
+
+## Free / learning subscription tips
+
+- Defaults target cheap SKUs: AKS Free + 1× `Standard_B2s`, ACR Basic, Postgres `B_Standard_B1ms`, agent `Standard_B1s`.
+- Set `enable_policy_assignments = false` in `terraform.tfvars` until the pipeline service principal has **Resource Policy Contributor** (otherwise `policyAssignments/write` returns 403).
+- Postgres with VNet integration must set `public_network_access_enabled = false` (already in the module).

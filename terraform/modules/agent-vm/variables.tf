@@ -8,11 +8,10 @@ variable "vm_name" {
   default = "vm-empapp-agent"
 }
 
-# Small compute; a bit more than B1s so it can comfortably run kubectl/helm/
-# flux CLI operations (B1s' 1GB RAM is workable but tight for that).
+# Smallest burstable size that still runs kubectl/helm/flux for learning/free tier.
 variable "vm_size" {
   type    = string
-  default = "Standard_B2s"
+  default = "Standard_B1s"
 }
 
 variable "admin_username" {

@@ -27,6 +27,16 @@ variable "allowed_locations" {
   default = ["centralindia", "southindia", "westindia"]
 }
 
+variable "enable_policy_assignments" {
+  description = <<-EOT
+    Create subscription-scope Azure Policy assignments. Requires the pipeline
+    service principal to have Resource Policy Contributor (policyAssignments/write).
+    Set false on free/learning subscriptions until that role is granted.
+  EOT
+  type    = bool
+  default = false
+}
+
 variable "backend_container_port" {
   type    = number
   default = 8000
