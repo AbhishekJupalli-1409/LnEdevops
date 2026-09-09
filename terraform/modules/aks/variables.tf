@@ -10,10 +10,14 @@ variable "dns_prefix" {
   default = "empapp-aks"
 }
 
-# Cheapest burstable AKS node size for free/learning in centralindia.
+# Smallest AKS *system* pool SKU that Azure actually accepts. B-series
+# (burstable) VMs are NOT allowed for system node pools - they fail with
+# SystemPoolSkuTooLow - so this must stay on a D-series. Standard_D2s_v3
+# (2 vCPU / 8 GB) is the cheapest reliable, widely-available valid size in
+# centralindia. Pair with node_count = 1 to keep the cost minimal.
 variable "node_vm_size" {
   type    = string
-  default = "Standard_B2ts_v2"
+  default = "Standard_B2s_v2"
 }
 
 variable "node_count" {

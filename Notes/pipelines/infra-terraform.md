@@ -52,6 +52,27 @@ Enables next steps:
 - Stage Plan on `ubuntu-latest`  
 - Stage Apply with environment gate  
 
+## Cheapest / free-tier settings (and what is *not* free)
+
+To keep this learning stack as small as possible:
+
+- **AKS**: `sku_tier = "Free"` (control plane is free), `node_count = 1`,
+  `node_vm_size = "Standard_D2s_v3"`. Note: **B-series (burstable) VMs are
+  not allowed for AKS system node pools** — they fail with
+  `SystemPoolSkuTooLow`, so a small D-series is the cheapest *valid* size.
+- **PostgreSQL**: `B_Standard_B1ms` (smallest burstable), 32 GB storage.
+  With VNet integration you **must** set `public_network_access_enabled =
+  false`, or Azure returns
+  `ConflictingPublicNetworkAccessAndVirtualNetworkConfiguration`.
+- **ACR**: Basic SKU. **Key Vault**: standard. **ACI**: 1 vCPU / 1.5 GB.
+- **Policy assignments** are off by default (`enable_policy_assignments =
+  false`) so a service principal without *Resource Policy Contributor* can
+  still apply (avoids the `policyAssignments/write` 403).
+
+Genuinely-free Azure services do **not** cover AKS nodes, the agent VM, the
+NAT gateway, or Postgres Flexible Server — these always bill something even
+at the smallest size. The settings above just minimise that spend.
+
 ## In this project
 
 Primary “build the cloud” automation; see also `docs/RUNBOOK.md` step 1.
