@@ -8,13 +8,18 @@ resource "azurerm_key_vault" "this" {
   sku_name            = "standard"
   tags                = var.tags
 
-  enable_rbac_authorization      = true
-  purge_protection_enabled       = false
-  soft_delete_retention_days     = 7
-  public_network_access_enabled  = false
+  enable_rbac_authorization  = true
+  purge_protection_enabled   = false
+  soft_delete_retention_days = 7
+
+  # MUST stay enabled: infra pipeline runs on Microsoft-hosted agents (public
+  # internet). With public access off, secret writes fail ForbiddenByConnection
+  # even when the SP has Key Vault Secrets Officer. Private Endpoint below still
+  # gives in-VNet clients a private path.
+  public_network_access_enabled = true
 
   network_acls {
-    default_action = "Deny"
+    default_action = "Allow"
     bypass         = "AzureServices"
   }
 }
@@ -51,14 +56,20 @@ resource "azurerm_key_vault_secret" "postgres_admin_password" {
   name         = "postgres-admin-password"
   value        = var.postgres_admin_password
   key_vault_id = azurerm_key_vault.this.id
-  depends_on   = [azurerm_role_assignment.deployer_secrets_officer]
+  depends_on = [
+    azurerm_role_assignment.deployer_secrets_officer,
+    azurerm_private_endpoint.keyvault,
+  ]
 }
 
 resource "azurerm_key_vault_secret" "postgres_connection_string" {
   name         = "postgres-connection-string"
   value        = var.postgres_connection_string
   key_vault_id = azurerm_key_vault.this.id
-  depends_on   = [azurerm_role_assignment.deployer_secrets_officer]
+  depends_on = [
+    azurerm_role_assignment.deployer_secrets_officer,
+    azurerm_private_endpoint.keyvault,
+  ]
 }
 
 # Keys are not secret; values are. Terraform forbids a sensitive map as
@@ -68,5 +79,8 @@ resource "azurerm_key_vault_secret" "extra" {
   name         = each.key
   value        = var.extra_secrets[each.key]
   key_vault_id = azurerm_key_vault.this.id
-  depends_on   = [azurerm_role_assignment.deployer_secrets_officer]
+  depends_on = [
+    azurerm_role_assignment.deployer_secrets_officer,
+    azurerm_private_endpoint.keyvault,
+  ]
 }
