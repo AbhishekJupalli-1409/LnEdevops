@@ -58,6 +58,7 @@ resource "azurerm_virtual_machine_run_command" "install_agent" {
   name                = "install-devops-agent"
   location            = var.location
   virtual_machine_id  = azurerm_linux_virtual_machine.agent.id
+  tags                = var.tags
 
   source {
     script = <<-EOT

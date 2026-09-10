@@ -17,6 +17,11 @@ resource "azurerm_kubernetes_cluster" "this" {
   # Pin the managed RG name so it matches the policy not_scopes exemption.
   node_resource_group       = "MC_${var.resource_group_name}_${var.cluster_name}_${var.location}"
 
+  # Azure enables this on current AKS versions. Once on, it cannot be turned
+  # off (OIDCIssuerFeatureCannotBeDisabled). Terraform defaults it to false,
+  # which breaks apply after import of an existing cluster.
+  oidc_issuer_enabled = true
+
   default_node_pool {
     name           = "system"
     vm_size        = var.node_vm_size
@@ -24,6 +29,9 @@ resource "azurerm_kubernetes_cluster" "this" {
     vnet_subnet_id = var.aks_subnet_id
     os_disk_size_gb = 30
     type           = "VirtualMachineScaleSets"
+    # Apply the same tags as the cluster so the node VMSS is not denied by
+    # the Require-a-tag policies if the MC_ RG exemption is slow/mismatched.
+    tags           = var.tags
   }
 
   identity {
