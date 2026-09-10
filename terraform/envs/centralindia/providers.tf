@@ -36,11 +36,13 @@ provider "azurerm" {
 
 # Configured at the root so module.azuredevops can use count.
 # Terraform initializes this provider on every plan/apply, even when
-# manage_azure_devops is false. It talks to Azure DevOps with a PAT (or
-# AZDO_PERSONAL_ACCESS_TOKEN / the pipeline OAuth token) — the Azure RM
-# service connection is not used here.
-# An empty PAT in terraform.tfvars is left unset so the env var can be used.
+# manage_azure_devops is false. The Azure RM service connection is not used.
+#
+# When we are NOT managing AzDO resources, leave personal_access_token unset
+# so the provider uses AZDO_PERSONAL_ACCESS_TOKEN (pipeline System.AccessToken).
+# The agent-VM PAT is often Agent-Pools-only (or a different identity) and
+# 401s here with "You are not authorized to access Azure DevOps Organization".
 provider "azuredevops" {
   org_service_url       = var.azdo_org_service_url
-  personal_access_token = var.azdo_personal_access_token == "" ? null : var.azdo_personal_access_token
+  personal_access_token = var.manage_azure_devops ? var.azdo_personal_access_token : null
 }
