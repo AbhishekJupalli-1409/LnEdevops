@@ -63,41 +63,57 @@ resource "azurerm_virtual_machine_run_command" "install_agent" {
   source {
     script = <<-EOT
       #!/bin/bash
-      set -e
+      set -euo pipefail
+      export DEBIAN_FRONTEND=noninteractive
+      export NEEDRESTART_MODE=a
+
       apt-get update -y
-      apt-get install -y curl unzip jq apt-transport-https lsb-release gnupg
+      apt-get install -y curl unzip jq apt-transport-https lsb-release gnupg ca-certificates
 
-      curl -sL https://aka.ms/InstallAzureCLIDeb | bash
+      if ! command -v az >/dev/null 2>&1; then
+        curl -sL https://aka.ms/InstallAzureCLIDeb | bash
+      fi
 
-      curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-      install -m 0755 kubectl /usr/local/bin/kubectl
+      if ! command -v kubectl >/dev/null 2>&1; then
+        curl -fLO "https://dl.k8s.io/release/$(curl -fL -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+        install -m 0755 kubectl /usr/local/bin/kubectl
+        rm -f kubectl
+      fi
 
-      curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+      if ! command -v helm >/dev/null 2>&1; then
+        curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+      fi
 
-      curl -s https://fluxcd.io/install.sh | bash
-      mv /root/.local/bin/flux /usr/local/bin/flux 2>/dev/null || true
+      if ! command -v flux >/dev/null 2>&1; then
+        curl -fsSL https://fluxcd.io/install.sh | bash
+        mv /root/.local/bin/flux /usr/local/bin/flux 2>/dev/null || true
+      fi
 
       mkdir -p /opt/azp-agent && cd /opt/azp-agent
-      AZP_AGENT_VER=$(curl -s https://api.github.com/repos/microsoft/azure-pipelines-agent/releases/latest | jq -r '.tag_name' | sed 's/^v//')
-      curl -o agent.tar.gz -L "https://vstsagentpackage.azureedge.net/agent/$${AZP_AGENT_VER}/vsts-agent-linux-x64-$${AZP_AGENT_VER}.tar.gz"
-      tar zxvf agent.tar.gz
 
-      export AZP_URL="${var.azp_url}"
-      export AZP_TOKEN="${var.azp_token}"
-      export AZP_POOL="${var.azp_pool}"
-      export AZP_AGENT_NAME="vm-empapp-agent"
+      if [ ! -x ./config.sh ]; then
+        AZP_AGENT_VER=$(curl -fsSL https://api.github.com/repos/microsoft/azure-pipelines-agent/releases/latest | jq -r '.tag_name' | sed 's/^v//')
+        AGENT_TAR="vsts-agent-linux-x64-$${AZP_AGENT_VER}.tar.gz"
+        # azureedge.net CDN was retired (Edgio). New host is download.agent.dev.azure.com.
+        if ! curl -fL --retry 3 -o agent.tar.gz "https://download.agent.dev.azure.com/agent/$${AZP_AGENT_VER}/$${AGENT_TAR}"; then
+          curl -fL --retry 3 -o agent.tar.gz "https://github.com/microsoft/azure-pipelines-agent/releases/download/v$${AZP_AGENT_VER}/$${AGENT_TAR}"
+        fi
+        tar zxvf agent.tar.gz
+        rm -f agent.tar.gz
+      fi
 
-      ./config.sh --unattended \
-        --url "$AZP_URL" \
-        --auth pat \
-        --token "$AZP_TOKEN" \
-        --pool "$AZP_POOL" \
-        --agent "$AZP_AGENT_NAME" \
-        --acceptTeeEula \
-        --runAsService
-
-      ./svc.sh install
-      ./svc.sh start
+      if [ ! -f .agent ]; then
+        ./config.sh --unattended \
+          --url "${var.azp_url}" \
+          --auth pat \
+          --token "${var.azp_token}" \
+          --pool "${var.azp_pool}" \
+          --agent "vm-empapp-agent" \
+          --acceptTeeEula \
+          --runAsService
+        ./svc.sh install
+      fi
+      ./svc.sh start || true
     EOT
   }
 }

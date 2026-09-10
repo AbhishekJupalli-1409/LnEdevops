@@ -23,14 +23,13 @@ resource "azurerm_kubernetes_cluster" "this" {
   oidc_issuer_enabled = true
 
   default_node_pool {
-    name           = "system"
+    # "agentpool" is Azure's default name. Renaming an imported pool (e.g.
+    # to "system") requires temporary_name_for_rotation and a full cycle.
+    name           = "agentpool"
     vm_size        = var.node_vm_size
     node_count     = var.node_count
     vnet_subnet_id = var.aks_subnet_id
-    os_disk_size_gb = 30
     type           = "VirtualMachineScaleSets"
-    # Apply the same tags as the cluster so the node VMSS is not denied by
-    # the Require-a-tag policies if the MC_ RG exemption is slow/mismatched.
     tags           = var.tags
   }
 
@@ -48,9 +47,12 @@ resource "azurerm_kubernetes_cluster" "this" {
   }
 
   lifecycle {
-    # After import, Azure has a concrete version while config leaves this
-    # null (let Azure pick). Ignore so we do not replace the cluster.
-    ignore_changes = [kubernetes_version]
+    # kubernetes_version: Azure picks a concrete version at create; config
+    # leaves it null. default_node_pool: an imported cluster already has a
+    # pool (name, disk size, vm_size, subnet). Changing those requires
+    # temporary_name_for_rotation and a disruptive node-pool cycle we do
+    # not want on a learning/free-tier cluster.
+    ignore_changes = [kubernetes_version, default_node_pool]
   }
 }
 
