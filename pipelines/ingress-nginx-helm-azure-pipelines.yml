@@ -42,14 +42,19 @@ steps:
           --overwrite-existing
 
   - script: |
-      set -e
+      set -euo pipefail
       helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
       helm repo update
       kubectl create namespace ingress-nginx --dry-run=client -o yaml | kubectl apply -f -
-      helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+      if ! helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
         --namespace ingress-nginx \
         -f $(Build.SourcesDirectory)/helm/nginx-ingress-values.yaml \
-        --wait --timeout 10m
+        --wait --timeout 10m; then
+        echo "##[error]helm wait timed out. Cluster state:"
+        kubectl get pods,svc,events -n ingress-nginx -o wide || true
+        kubectl describe svc ingress-nginx-controller -n ingress-nginx || true
+        exit 1
+      fi
     displayName: 'helm upgrade --install ingress-nginx'
 
   - script: |

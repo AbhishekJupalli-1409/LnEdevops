@@ -1,7 +1,7 @@
 # Values for the official ingress-nginx chart (repo: https://kubernetes.github.io/ingress-nginx)
 # Small/basic footprint per the platform's compute guidance.
 controller:
-  replicaCount: 2
+  replicaCount: 1
   service:
     type: LoadBalancer
     externalTrafficPolicy: Local   # preserves real client IP
