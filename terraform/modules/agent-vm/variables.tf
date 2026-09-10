@@ -27,6 +27,11 @@ variable "azp_token" {
   description = "PAT with Agent Pools (read & manage) scope."
   type        = string
   sensitive   = true
+
+  validation {
+    condition     = length(trimspace(var.azp_token)) > 0
+    error_message = "azp_token is empty. Set TF_VAR_azdo_personal_access_token or pipeline secret azdoPersonalAccessToken. Do not assign azdo_personal_access_token = \"\" in terraform.tfvars — that overrides TF_VAR_*."
+  }
 }
 variable "azp_pool" {
   description = "Agent pool name this VM registers itself into. Point the ingress-nginx-helm and flux-bootstrap pipelines at this pool."

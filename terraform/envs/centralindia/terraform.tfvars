@@ -14,13 +14,15 @@ backend_container_port = 8000
 frontend_origin = "http://REPLACE-WITH-INGRESS-PUBLIC-IP"
 
 # --- Required regardless of manage_azure_devops below: the private agent VM
-# (module.agent_vm) registers itself against this org/pool using this PAT,
+# (module.agent_vm) registers itself against this org/pool using a PAT,
 # because kubectl/helm/flux steps can't run on Microsoft-hosted agents
 # against a private AKS API server. Create the org manually first (the one
 # allowed manual step), then a PAT with "Agent Pools (read & manage)" scope.
-azdo_org_service_url       = "https://dev.azure.com/jupalliabhishek1409"
-azdo_personal_access_token = "" # never commit a PAT; set TF_VAR_azdo_personal_access_token or pipeline secret azdoPersonalAccessToken
-azdo_agent_pool_name       = "empapp-private-pool"
+# Do NOT set azdo_personal_access_token here (even to ""). terraform.tfvars
+# beats TF_VAR_*, so an empty assignment wipes the pipeline secret and the
+# agent config fails with "Invalid configuration provided for token".
+azdo_org_service_url = "https://dev.azure.com/jupalliabhishek1409"
+azdo_agent_pool_name = "empapp-private-pool"
 
 # --- Optional: also let Terraform manage the Azure DevOps project/pipelines/
 # service connections (module.azuredevops) ----------------------------------

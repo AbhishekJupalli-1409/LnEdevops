@@ -23,8 +23,8 @@ parameters:
     default: 'empapp-arm'   # <-- change to your real connection name
 
 variables:
-  - name: azdoPersonalAccessToken
-    value: ''   # overridden by empapp-shared-vars when that secret exists
+  # Do not define azdoPersonalAccessToken here — a YAML value: '' beats the
+  # variable-group secret and the agent VM registers with an empty PAT.
   - group: empapp-shared-vars
   - name: tfWorkingDir
     value: '$(Build.SourcesDirectory)/terraform/envs/centralindia'
@@ -32,9 +32,9 @@ variables:
     value: '1.9.5'
   # Still required in empapp-shared-vars (from terraform/bootstrap outputs):
   # tfStateResourceGroup, tfStateStorageAccount, tfStateContainer
-  # Also set secret azdoPersonalAccessToken (Azure DevOps PAT). The ARM
-  # service connection cannot authenticate to dev.azure.com. Needed for
-  # the azuredevops provider and for the private agent VM to register.
+  # Also set secret azdoPersonalAccessToken (Azure DevOps PAT, Agent Pools
+  # read & manage). The ARM service connection cannot authenticate to
+  # dev.azure.com. Needed for the private agent VM to register.
 
 stages:
   - stage: Plan
@@ -69,16 +69,14 @@ stages:
                 export ARM_TENANT_ID=$tenantId
                 export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
                 # azuredevops provider does not use the ARM service connection.
-                if [ -n "${AZDO_PAT:-}" ]; then
-                  export AZDO_PERSONAL_ACCESS_TOKEN="$AZDO_PAT"
-                  export TF_VAR_azdo_personal_access_token="$AZDO_PAT"
-                elif [ -n "${SYSTEM_ACCESSTOKEN:-}" ]; then
-                  export AZDO_PERSONAL_ACCESS_TOKEN="$SYSTEM_ACCESSTOKEN"
-                else
-                  export AZDO_CLIENT_ID=$servicePrincipalId
-                  export AZDO_CLIENT_SECRET=$servicePrincipalKey
-                  export AZDO_TENANT_ID=$tenantId
+                # Pipeline OAuth (SYSTEM_ACCESSTOKEN) cannot register a self-hosted
+                # agent. A PAT in empapp-shared-vars is required.
+                if [ -z "${AZDO_PAT:-}" ]; then
+                  echo "##vso[task.logissue type=error]Secret azdoPersonalAccessToken is empty. Add an Azure DevOps PAT (Agent Pools: Read & manage) to variable group empapp-shared-vars."
+                  exit 1
                 fi
+                export AZDO_PERSONAL_ACCESS_TOKEN="$AZDO_PAT"
+                export TF_VAR_azdo_personal_access_token="$AZDO_PAT"
                 cd $(tfWorkingDir)
                 terraform init \
                   -backend-config="resource_group_name=$(tfStateResourceGroup)" \
@@ -108,18 +106,16 @@ stages:
                 export ARM_CLIENT_SECRET=$servicePrincipalKey
                 export ARM_TENANT_ID=$tenantId
                 export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
-                if [ -n "${AZDO_PAT:-}" ]; then
-                  export AZDO_PERSONAL_ACCESS_TOKEN="$AZDO_PAT"
-                  export TF_VAR_azdo_personal_access_token="$AZDO_PAT"
-                elif [ -n "${SYSTEM_ACCESSTOKEN:-}" ]; then
-                  export AZDO_PERSONAL_ACCESS_TOKEN="$SYSTEM_ACCESSTOKEN"
-                else
-                  export AZDO_CLIENT_ID=$servicePrincipalId
-                  export AZDO_CLIENT_SECRET=$servicePrincipalKey
-                  export AZDO_TENANT_ID=$tenantId
+                if [ -z "${AZDO_PAT:-}" ]; then
+                  echo "##vso[task.logissue type=error]Secret azdoPersonalAccessToken is empty. Add an Azure DevOps PAT (Agent Pools: Read & manage) to variable group empapp-shared-vars."
+                  exit 1
                 fi
+                export AZDO_PERSONAL_ACCESS_TOKEN="$AZDO_PAT"
+                export TF_VAR_azdo_personal_access_token="$AZDO_PAT"
                 cd $(tfWorkingDir)
-                terraform plan -var-file=terraform.tfvars -out=tfplan
+                # -var beats terraform.tfvars so an accidental empty assignment
+                # cannot wipe the PAT (that produced "Invalid configuration provided for token").
+                terraform plan -var-file=terraform.tfvars -var="azdo_personal_access_token=${AZDO_PAT}" -out=tfplan
 
           - publish: '$(tfWorkingDir)/tfplan'
             artifact: tfplan
@@ -163,16 +159,12 @@ stages:
                       export ARM_CLIENT_SECRET=$servicePrincipalKey
                       export ARM_TENANT_ID=$tenantId
                       export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
-                      if [ -n "${AZDO_PAT:-}" ]; then
-                        export AZDO_PERSONAL_ACCESS_TOKEN="$AZDO_PAT"
-                        export TF_VAR_azdo_personal_access_token="$AZDO_PAT"
-                      elif [ -n "${SYSTEM_ACCESSTOKEN:-}" ]; then
-                        export AZDO_PERSONAL_ACCESS_TOKEN="$SYSTEM_ACCESSTOKEN"
-                      else
-                        export AZDO_CLIENT_ID=$servicePrincipalId
-                        export AZDO_CLIENT_SECRET=$servicePrincipalKey
-                        export AZDO_TENANT_ID=$tenantId
+                      if [ -z "${AZDO_PAT:-}" ]; then
+                        echo "##vso[task.logissue type=error]Secret azdoPersonalAccessToken is empty. Add an Azure DevOps PAT (Agent Pools: Read & manage) to variable group empapp-shared-vars. Re-run Plan after adding it — a saved plan from before still has an empty token."
+                        exit 1
                       fi
+                      export AZDO_PERSONAL_ACCESS_TOKEN="$AZDO_PAT"
+                      export TF_VAR_azdo_personal_access_token="$AZDO_PAT"
                       cd $(tfWorkingDir)
                       terraform init \
                         -backend-config="resource_group_name=$(tfStateResourceGroup)" \

@@ -18,9 +18,10 @@ frontend_origin = "http://REPLACE-WITH-INGRESS-PUBLIC-IP"
 # because kubectl/helm/flux steps can't run on Microsoft-hosted agents
 # against a private AKS API server. Create the org manually first (the one
 # allowed manual step), then a PAT with "Agent Pools (read & manage)" scope.
-azdo_org_service_url       = "https://dev.azure.com/your-org"
-azdo_personal_access_token = "" # never commit a PAT; set TF_VAR_azdo_personal_access_token or pipeline secret azdoPersonalAccessToken
-azdo_agent_pool_name       = "empapp-private-pool"
+azdo_org_service_url = "https://dev.azure.com/your-org"
+azdo_agent_pool_name = "empapp-private-pool"
+# PAT: never put azdo_personal_access_token in this file (even as "").
+# Set TF_VAR_azdo_personal_access_token or pipeline secret azdoPersonalAccessToken.
 
 # Requires SP role "Resource Policy Contributor". Leave false on free/learning
 # until: az role assignment create --assignee <sp-object-id> \
