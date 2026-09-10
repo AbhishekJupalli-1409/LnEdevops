@@ -113,10 +113,17 @@ resource "azurerm_virtual_machine_run_command" "install_agent" {
       chown -R "$${AGENT_USER}:$${AGENT_USER}" "$${AGENT_HOME}"
 
       if [ ! -f .agent ]; then
+        # Base64 so a PAT containing $() or quotes cannot be executed as bash
+        # (the last failure was: azdoPersonalAccessToken: command not found).
+        AZP_TOKEN=$(printf '%s' '${base64encode(var.azp_token)}' | base64 -d)
+        if [ -z "$${AZP_TOKEN}" ]; then
+          echo "azp_token is empty after decode. Set secret azdoPersonalAccessToken in empapp-shared-vars." >&2
+          exit 1
+        fi
         runuser -u "$${AGENT_USER}" -- ./config.sh --unattended \
           --url "${var.azp_url}" \
           --auth pat \
-          --token "${var.azp_token}" \
+          --token "$${AZP_TOKEN}" \
           --pool "${var.azp_pool}" \
           --agent "${var.vm_name}" \
           --work _work \
