@@ -9,6 +9,14 @@ trigger:
   paths:
     include: [helm/**, pipelines/ingress-nginx-helm-azure-pipelines.yml]
 
+# azureSubscription is validated at COMPILE time. A runtime macro like
+# $(armServiceConnection) from a variable group often does not expand.
+parameters:
+  - name: azureServiceConnection
+    displayName: 'Azure Resource Manager service connection name'
+    type: string
+    default: 'empapp-arm'
+
 pool:
   name: 'empapp-private-pool'
 
@@ -23,7 +31,7 @@ steps:
   - task: AzureCLI@2
     displayName: 'Get AKS credentials (private cluster - only reachable from inside the VNet)'
     inputs:
-      azureSubscription: '$(armServiceConnection)'
+      azureSubscription: ${{ parameters.azureServiceConnection }}
       scriptType: bash
       scriptLocation: inlineScript
       inlineScript: |
