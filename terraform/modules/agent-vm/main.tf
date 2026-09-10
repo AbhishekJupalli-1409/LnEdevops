@@ -61,11 +61,18 @@ resource "azurerm_virtual_machine_run_command" "install_agent" {
   tags                = var.tags
 
   source {
+    # Run Command always executes as root. Azure Pipelines config.sh refuses
+    # root ("Must not run with sudo"), including `sudo -u` (SUDO_USER is set).
+    # Install packages as root, then drop to the VM admin user via runuser
+    # (no SUDO_USER) for config.sh. svc.sh install/start stay root.
     script = <<-EOT
       #!/bin/bash
       set -euo pipefail
       export DEBIAN_FRONTEND=noninteractive
       export NEEDRESTART_MODE=a
+
+      AGENT_USER="${var.admin_username}"
+      AGENT_HOME="/opt/azp-agent"
 
       apt-get update -y
       apt-get install -y curl unzip jq apt-transport-https lsb-release gnupg ca-certificates
@@ -89,7 +96,8 @@ resource "azurerm_virtual_machine_run_command" "install_agent" {
         mv /root/.local/bin/flux /usr/local/bin/flux 2>/dev/null || true
       fi
 
-      mkdir -p /opt/azp-agent && cd /opt/azp-agent
+      mkdir -p "$${AGENT_HOME}"
+      cd "$${AGENT_HOME}"
 
       if [ ! -x ./config.sh ]; then
         AZP_AGENT_VER=$(curl -fsSL https://api.github.com/repos/microsoft/azure-pipelines-agent/releases/latest | jq -r '.tag_name' | sed 's/^v//')
@@ -102,17 +110,20 @@ resource "azurerm_virtual_machine_run_command" "install_agent" {
         rm -f agent.tar.gz
       fi
 
+      chown -R "$${AGENT_USER}:$${AGENT_USER}" "$${AGENT_HOME}"
+
       if [ ! -f .agent ]; then
-        ./config.sh --unattended \
+        runuser -u "$${AGENT_USER}" -- ./config.sh --unattended \
           --url "${var.azp_url}" \
           --auth pat \
           --token "${var.azp_token}" \
           --pool "${var.azp_pool}" \
-          --agent "vm-empapp-agent" \
-          --acceptTeeEula \
-          --runAsService
-        ./svc.sh install
+          --agent "${var.vm_name}" \
+          --work _work \
+          --acceptTeeEula
       fi
+
+      ./svc.sh install "$${AGENT_USER}" || true
       ./svc.sh start || true
     EOT
   }
