@@ -1,9 +1,13 @@
 # Azure Pipelines - Todo List (Flask)
-# Repo: https://github.com/a7medayman6/Todo-List-Dockerized-Flask-WebApp
+# YAML lives in this platform repo; source + Dockerfile come from
+# https://github.com/a7medayman6/Todo-List-Dockerized-Flask-WebApp
 # Default branch is "master", not "main".
 trigger:
   branches:
-    include: [master]
+    include: [main]
+  paths:
+    include:
+      - pipelines/app-todolist-azure-pipelines.yml
 
 pool:
   vmImage: 'ubuntu-latest'
@@ -12,19 +16,29 @@ variables:
   - group: empapp-shared-vars
   - name: imageRepository
     value: 'todo-list-app'
-  - name: dockerfilePath
-    value: '$(Build.SourcesDirectory)/Dockerfile'
+  - name: appRepo
+    value: 'https://github.com/a7medayman6/Todo-List-Dockerized-Flask-WebApp.git'
+  - name: appDir
+    value: '$(Pipeline.Workspace)/app'
   - name: tag
     value: '$(Build.BuildId)'
 
 steps:
+  - checkout: none
+
+  - script: |
+      set -euo pipefail
+      git clone --depth 1 --branch master "$(appRepo)" "$(appDir)"
+      ls -la "$(appDir)/Dockerfile"
+    displayName: 'Clone Todo-List-Dockerized-Flask-WebApp'
+
   - task: Docker@2
     displayName: 'Build and push todo-list image to ACR'
     inputs:
       command: buildAndPush
       repository: '$(imageRepository)'
-      dockerfile: '$(dockerfilePath)'
-      buildContext: '$(Build.SourcesDirectory)'
+      dockerfile: '$(appDir)/Dockerfile'
+      buildContext: '$(appDir)'
       containerRegistry: '$(acrServiceConnection)'
       tags: |
         $(tag)

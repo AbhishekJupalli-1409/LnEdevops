@@ -1,17 +1,17 @@
 # Azure Pipelines - Employee App BACKEND (Node.js)
-# Repo: https://github.com/cubastion-training/sample-node-app.git
+# YAML lives in this platform repo; source + Dockerfile come from
+# https://github.com/cubastion-training/sample-node-app.git
 #
-# COMPATIBILITY PATCH: this repo's package.json only lists mysql/mysql2 as
-# Sequelize drivers, but the platform deploys PostgreSQL Flexible Server.
-# Sequelize is dialect-agnostic beyond the driver + config.js's DBDIALECT
-# value, so the fix is just making sure the pg driver is present in the image
-# - no application code changes. This step patches package.json in the
-# pipeline's own checkout, BEFORE the Docker build context is used, so the
-# Dockerfile's own `RUN npm install` step picks it up. The source repo itself
-# is never modified.
+# COMPATIBILITY PATCH: package.json only lists mysql/mysql2, but this
+# platform uses PostgreSQL. Patch pg into the cloned tree before docker
+# build so Dockerfile's `npm install` picks it up. The GitHub repo is
+# never modified.
 trigger:
   branches:
     include: [main]
+  paths:
+    include:
+      - pipelines/app-backend-azure-pipelines.yml
 
 pool:
   vmImage: 'ubuntu-latest'
@@ -20,25 +20,35 @@ variables:
   - group: empapp-shared-vars
   - name: imageRepository
     value: 'employee-app-backend'
-  - name: dockerfilePath
-    value: '$(Build.SourcesDirectory)/Dockerfile'
+  - name: appRepo
+    value: 'https://github.com/cubastion-training/sample-node-app.git'
+  - name: appDir
+    value: '$(Pipeline.Workspace)/app'
   - name: tag
     value: '$(Build.BuildId)'
 
 steps:
+  - checkout: none
+
   - script: |
-      set -e
+      set -euo pipefail
+      git clone --depth 1 --branch main "$(appRepo)" "$(appDir)"
+      ls -la "$(appDir)/Dockerfile"
+    displayName: 'Clone sample-node-app'
+
+  - script: |
+      set -euo pipefail
       npm install pg pg-hstore --save --package-lock=false
     displayName: 'Patch: add pg/pg-hstore driver for PostgreSQL'
-    workingDirectory: '$(Build.SourcesDirectory)'
+    workingDirectory: '$(appDir)'
 
   - task: Docker@2
     displayName: 'Build and push backend image to ACR'
     inputs:
       command: buildAndPush
       repository: '$(imageRepository)'
-      dockerfile: '$(dockerfilePath)'
-      buildContext: '$(Build.SourcesDirectory)'
+      dockerfile: '$(appDir)/Dockerfile'
+      buildContext: '$(appDir)'
       containerRegistry: '$(acrServiceConnection)'
       tags: |
         $(tag)
