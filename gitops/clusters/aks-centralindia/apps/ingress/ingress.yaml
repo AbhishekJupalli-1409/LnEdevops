@@ -44,12 +44,14 @@ spec:
                   number: 8000
 ---
 # No rewrite: Flask templates post to /add, /delete/N, /update/N and
-# redirect to /. Those must reach todolist unchanged.
+# redirect to /. app-root sends "/" to /to-do/ so that redirect is useful.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: todolist-root-routes
   namespace: apps
+  annotations:
+    nginx.ingress.kubernetes.io/app-root: /to-do/
 spec:
   ingressClassName: nginx
   rules:
@@ -76,8 +78,10 @@ spec:
                 name: todolist-service
                 port:
                   number: 80
+          # Catch-all for Flask redirect to "/". More-specific paths
+          # (/emp, /to-do, /static, /api, …) on other Ingress objects win.
           - path: /
-            pathType: Exact
+            pathType: Prefix
             backend:
               service:
                 name: todolist-service

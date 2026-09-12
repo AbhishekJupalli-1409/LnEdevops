@@ -5,7 +5,10 @@ metadata:
   namespace: apps
   labels: { app: todolist }
 spec:
-  replicas: 2
+  # Single replica: this sample app uses a local SQLite DB inside the
+  # container. With replicas>1, add/list can hit pod A while update/delete
+  # hit pod B (task not found → NoneType / "issue deleting").
+  replicas: 1
   selector:
     matchLabels: { app: todolist }
   template:
