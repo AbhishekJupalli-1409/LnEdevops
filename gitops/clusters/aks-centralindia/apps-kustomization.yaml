@@ -10,6 +10,8 @@ spec:
   sourceRef:
     kind: GitRepository
     name: flux-system
+  # Substitutes ${ACR_LOGIN_SERVER}, ${BACKEND_PRIVATE_IP}, ${BACKEND_PORT}
+  # from the ConfigMap written by pipelines/flux-bootstrap-azure-pipelines.yml.
   postBuild:
     substituteFrom:
       - kind: ConfigMap

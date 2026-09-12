@@ -1,0 +1,8 @@
+# Root Flux path (gotk-sync). Do NOT list apps/ here — that tree contains
+# ${ACR_LOGIN_SERVER} / ${BACKEND_PRIVATE_IP} placeholders and is applied by
+# the Flux Kustomization in apps-kustomization.yaml (with postBuild substitute).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - flux-system
+  - apps-kustomization.yaml
