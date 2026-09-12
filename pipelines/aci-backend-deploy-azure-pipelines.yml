@@ -9,6 +9,10 @@
 trigger: none   # triggered manually, or chained after the backend image pipeline - see docs/RUNBOOK.md
 
 parameters:
+  - name: azureServiceConnection
+    displayName: 'Azure Resource Manager service connection name'
+    type: string
+    default: 'empapp-arm'
   - name: imageTag
     type: string
     default: 'latest'
@@ -30,7 +34,7 @@ steps:
   - task: AzureCLI@2
     displayName: 'Update ACI env vars and restart the container group'
     inputs:
-      azureSubscription: '$(armServiceConnection)'
+      azureSubscription: ${{ parameters.azureServiceConnection }}
       scriptType: bash
       scriptLocation: inlineScript
       inlineScript: |
