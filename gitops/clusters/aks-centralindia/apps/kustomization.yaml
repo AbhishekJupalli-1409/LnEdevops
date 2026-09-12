@@ -6,4 +6,5 @@ resources:
   - frontend/service.yaml
   - todolist/deployment.yaml
   - todolist/service.yaml
+  - backend/service.yaml
   - ingress/ingress.yaml

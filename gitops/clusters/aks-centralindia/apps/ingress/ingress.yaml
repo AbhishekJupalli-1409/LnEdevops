@@ -1,16 +1,13 @@
 # Path-based routing on the single ingress-nginx public IP:
 #   /emp    -> frontend-service   (Employee app, React SPA)
 #   /to-do  -> todolist-service   (Todo List, Flask)
+#   /api    -> aci-backend        (Employee API on private ACI)
+#   /add|/delete|/update|/  -> todolist (Flask forms use root-absolute URLs)
 #
-# KNOWN CAVEAT - single-page apps under a subpath: both apps were built to
-# be served from "/", so their compiled asset references (e.g. React's
-# /static/js/main.js, Flask's url_for('static', ...)) are NOT prefix-aware.
-# The rewrite-target below makes the *page* work at /emp and /to-do; the
-# extra "/static" rule below catches the React build's absolute asset paths.
-# For a fully correct production setup, rebuild the frontend with
-# PUBLIC_URL=/emp (Create React App honours this at build time) and add
-# ProxyFix/APPLICATION_ROOT handling to the Flask app for /to-do - see
-# docs/RUNBOOK.md.
+# SPA notes: HTML references env.js relatively and /static/* absolutely.
+# /env.js and /static are routed to the frontend. API_BASE_URL is /api so
+# the browser stays on the public ingress (ACI private IP is not reachable
+# from the internet).
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -38,8 +35,83 @@ spec:
                 name: todolist-service
                 port:
                   number: 80
+          - path: /api(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: aci-backend
+                port:
+                  number: 8000
+---
+# No rewrite: Flask templates post to /add, /delete/N, /update/N and
+# redirect to /. Those must reach todolist unchanged.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: todolist-root-routes
+  namespace: apps
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /add
+            pathType: Prefix
+            backend:
+              service:
+                name: todolist-service
+                port:
+                  number: 80
+          - path: /delete
+            pathType: Prefix
+            backend:
+              service:
+                name: todolist-service
+                port:
+                  number: 80
+          - path: /update
+            pathType: Prefix
+            backend:
+              service:
+                name: todolist-service
+                port:
+                  number: 80
+          - path: /
+            pathType: Exact
+            backend:
+              service:
+                name: todolist-service
+                port:
+                  number: 80
+---
+# Absolute asset paths from the React build (and relative env.js when the
+# browser resolves it against the host root instead of /emp/).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: frontend-root-assets
+  namespace: apps
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
           - path: /static
             pathType: Prefix
+            backend:
+              service:
+                name: frontend-service
+                port:
+                  number: 80
+          - path: /env.js
+            pathType: Exact
+            backend:
+              service:
+                name: frontend-service
+                port:
+                  number: 80
+          - path: /favicon.ico
+            pathType: Exact
             backend:
               service:
                 name: frontend-service

@@ -109,8 +109,52 @@ resource "azurerm_network_security_group" "aks" {
   location            = var.location
   resource_group_name = var.resource_group_name
   tags                = var.tags
-  # No custom rules: AKS/Azure LB manage the rules this NSG needs for
-  # LoadBalancer services (e.g. the ingress-nginx public IP) automatically.
+  # Subnet NSGs must allow Internet→80/443 themselves. AKS only manages the
+  # node NIC NSG in the MC_ resource group; an empty subnet NSG still has
+  # DenyAllInbound and black-holes the ingress LoadBalancer public IP.
+}
+
+# Public ingress-nginx (and any future HTTP(S) Service LoadBalancers).
+resource "azurerm_network_security_rule" "aks_allow_internet_http" {
+  name                        = "allow-internet-http"
+  priority                    = 100
+  direction                   = "Inbound"
+  access                      = "Allow"
+  protocol                    = "Tcp"
+  source_port_range           = "*"
+  destination_port_range      = "80"
+  source_address_prefix       = "Internet"
+  destination_address_prefix  = "*"
+  resource_group_name         = var.resource_group_name
+  network_security_group_name = azurerm_network_security_group.aks.name
+}
+
+resource "azurerm_network_security_rule" "aks_allow_internet_https" {
+  name                        = "allow-internet-https"
+  priority                    = 110
+  direction                   = "Inbound"
+  access                      = "Allow"
+  protocol                    = "Tcp"
+  source_port_range           = "*"
+  destination_port_range      = "443"
+  source_address_prefix       = "Internet"
+  destination_address_prefix  = "*"
+  resource_group_name         = var.resource_group_name
+  network_security_group_name = azurerm_network_security_group.aks.name
+}
+
+resource "azurerm_network_security_rule" "aks_allow_azure_loadbalancer" {
+  name                        = "allow-azure-loadbalancer"
+  priority                    = 120
+  direction                   = "Inbound"
+  access                      = "Allow"
+  protocol                    = "*"
+  source_port_range           = "*"
+  destination_port_range      = "*"
+  source_address_prefix       = "AzureLoadBalancer"
+  destination_address_prefix  = "*"
+  resource_group_name         = var.resource_group_name
+  network_security_group_name = azurerm_network_security_group.aks.name
 }
 
 resource "azurerm_subnet_network_security_group_association" "aks" {
