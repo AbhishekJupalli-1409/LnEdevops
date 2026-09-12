@@ -2,6 +2,9 @@
 # apps via GitOps (reconciling gitops/clusters/aks-centralindia from this repo).
 #
 # MUST run on the private agent pool - same reason as the ingress pipeline.
+#
+# This platform repo lives in Azure DevOps, so we use `flux bootstrap git`
+# against the AzDO URL (not `flux bootstrap github`).
 trigger:
   branches:
     include: [main]
@@ -15,6 +18,26 @@ parameters:
     displayName: 'Azure Resource Manager service connection name'
     type: string
     default: 'empapp-arm'
+  - name: azdoOrg
+    displayName: 'Azure DevOps organization name'
+    type: string
+    default: 'jupalliabhishek1409'
+  - name: azdoProject
+    displayName: 'Azure DevOps project name'
+    type: string
+    default: 'learnandearn'
+  - name: azdoRepo
+    displayName: 'Azure DevOps git repo name (platform / gitops)'
+    type: string
+    default: 'learnandearn'
+  - name: aciBackendPrivateIp
+    displayName: 'ACI backend private IP (terraform output aci_backend_private_ip)'
+    type: string
+    default: '10.10.2.4'
+  - name: acrLoginServer
+    displayName: 'ACR login server'
+    type: string
+    default: 'acrempapp6ickq.azurecr.io'
 
 pool:
   name: 'empapp-private-pool'
@@ -27,9 +50,9 @@ variables:
     value: 'aks-empapp-cin'
   - name: fluxNamespace
     value: 'flux-system'
-  # Set as a secret pipeline variable: githubToken (repo scope) - Flux uses it
-  # to pull this (presumably private) platform repo.
-  # Also set: aciBackendPrivateIp (from `terraform output aci_backend_private_ip`)
+  # Secret in empapp-shared-vars (or pipeline): azdoPersonalAccessToken
+  # Needs Code (Read) on this repo so Flux can clone gitops manifests.
+  # Agent-registration PAT with only Agent Pools scope is NOT enough here.
 
 steps:
   - task: AzureCLI@2
@@ -42,31 +65,34 @@ steps:
         az aks get-credentials --resource-group $(aksResourceGroup) --name $(aksClusterName) --overwrite-existing
 
   - script: |
-      set -e
+      set -euo pipefail
+      TOKEN="$(azdoPersonalAccessToken)"
+      if [ -z "$TOKEN" ]; then
+        echo "##vso[task.logissue type=error]Set secret azdoPersonalAccessToken (Code Read on this repo) in empapp-shared-vars or on this pipeline."
+        exit 1
+      fi
       flux check --pre
-      flux bootstrap github \
-        --owner=$(githubOrg) \
-        --repository=$(platformRepoName) \
+      flux bootstrap git \
+        --url="https://dev.azure.com/${{ parameters.azdoOrg }}/${{ parameters.azdoProject }}/_git/${{ parameters.azdoRepo }}" \
         --branch=main \
         --path=gitops/clusters/aks-centralindia \
         --token-auth \
-        --personal
-    displayName: 'flux bootstrap github'
-    env:
-      GITHUB_TOKEN: $(githubToken)
+        --username=azdo \
+        --password="$TOKEN"
+    displayName: 'flux bootstrap azure devops git'
 
   - script: |
-      set -e
+      set -euo pipefail
       kubectl create namespace apps --dry-run=client -o yaml | kubectl apply -f -
       kubectl -n flux-system create configmap cluster-vars \
-        --from-literal=ACR_LOGIN_SERVER=$(acrLoginServer) \
-        --from-literal=BACKEND_PRIVATE_IP=$(aciBackendPrivateIp) \
+        --from-literal=ACR_LOGIN_SERVER=${{ parameters.acrLoginServer }} \
+        --from-literal=BACKEND_PRIVATE_IP=${{ parameters.aciBackendPrivateIp }} \
         --from-literal=BACKEND_PORT=8000 \
         --dry-run=client -o yaml | kubectl apply -f -
     displayName: 'Write cluster-vars ConfigMap (substituted into gitops manifests by Flux)'
 
   - script: |
-      set -e
+      set -euo pipefail
       flux reconcile source git flux-system
       flux reconcile kustomization apps --with-source
     displayName: 'Force an immediate reconcile'
