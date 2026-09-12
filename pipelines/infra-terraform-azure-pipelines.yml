@@ -84,6 +84,10 @@ stages:
                 # saved plan updates the cluster instead of trying to create it.
                 chmod +x "$(Build.SourcesDirectory)/scripts/terraform-import-existing-aks.sh"
                 "$(Build.SourcesDirectory)/scripts/terraform-import-existing-aks.sh"
+                # Manual Key Vault Secrets Officer grants (or a prior failed apply)
+                # leave an Azure role assignment Terraform does not know about.
+                chmod +x "$(Build.SourcesDirectory)/scripts/terraform-import-existing-kv-secrets-officer.sh"
+                "$(Build.SourcesDirectory)/scripts/terraform-import-existing-kv-secrets-officer.sh"
 
           - task: AzureCLI@2
             displayName: 'terraform plan'
@@ -158,6 +162,8 @@ stages:
                         -backend-config="key=centralindia.terraform.tfstate"
                       chmod +x "$(Build.SourcesDirectory)/scripts/terraform-import-existing-aks.sh"
                       "$(Build.SourcesDirectory)/scripts/terraform-import-existing-aks.sh"
+                      chmod +x "$(Build.SourcesDirectory)/scripts/terraform-import-existing-kv-secrets-officer.sh"
+                      "$(Build.SourcesDirectory)/scripts/terraform-import-existing-kv-secrets-officer.sh"
                       terraform apply -auto-approve "$(Pipeline.Workspace)/tfplan/tfplan"
                       terraform output -json > tf-outputs.json
                 - publish: '$(tfWorkingDir)/tf-outputs.json'
