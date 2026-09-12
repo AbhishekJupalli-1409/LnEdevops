@@ -9,9 +9,8 @@ cost_center   = "CC-0001"
 allowed_locations      = ["centralindia", "southindia", "westindia"]
 backend_container_port = 8000
 
-# Placeholder until step 3 (nginx ingress) hands out a public IP - see
-# docs/RUNBOOK.md. Update and re-apply once you know the real value.
-frontend_origin = "http://REPLACE-WITH-INGRESS-PUBLIC-IP"
+# Ingress-nginx public IP (CORS WHITELIST_URLS for the ACI backend).
+frontend_origin = "http://4.224.111.37"
 
 # --- Required regardless of manage_azure_devops below: the private agent VM
 # (module.agent_vm) registers itself against this org/pool using a PAT,
