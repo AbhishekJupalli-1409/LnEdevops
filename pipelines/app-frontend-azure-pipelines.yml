@@ -31,6 +31,34 @@ steps:
       ls -la "$(appDir)/Dockerfile"
     displayName: 'Clone sample-react-app'
 
+  # App is served under ingress path /emp. Without basename, BrowserRouter
+  # looks for "/" while the URL is "/emp" → blank page (HTML/JS load, no routes).
+  # PUBLIC_URL=/emp makes asset URLs /emp/static/... which rewrite correctly.
+  - script: |
+      set -euo pipefail
+      cd "$(appDir)"
+      python3 <<'PY'
+      from pathlib import Path
+      app = Path("src/App.js")
+      text = app.read_text()
+      old = "<Router>"
+      new = '<Router basename="/emp">'
+      if old not in text:
+          raise SystemExit("Router tag not found in src/App.js — update the patch")
+      app.write_text(text.replace(old, new, 1))
+      pkg = Path("package.json")
+      import json
+      data = json.loads(pkg.read_text())
+      data["homepage"] = "/emp"
+      pkg.write_text(json.dumps(data, indent=2) + "\n")
+      df = Path("Dockerfile")
+      dfx = df.read_text()
+      dfx = dfx.replace("RUN npm run build", "RUN PUBLIC_URL=/emp npm run build", 1)
+      df.write_text(dfx)
+      print("Patched basename=/emp, homepage=/emp, PUBLIC_URL build")
+      PY
+    displayName: 'Patch: React Router basename + homepage for /emp'
+
   - task: Docker@2
     displayName: 'Build and push frontend image to ACR'
     inputs:

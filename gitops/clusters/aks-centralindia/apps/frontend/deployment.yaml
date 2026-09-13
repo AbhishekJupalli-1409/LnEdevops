@@ -19,9 +19,10 @@ spec:
           ports:
             - containerPort: 80
           env:
-            # Browser-reachable API via ingress /api → private ACI (see
-            # ingress/ingress.yaml). Do NOT use the ACI private IP here —
-            # the user's browser cannot route to 10.10.x.x.
+            # sample-react-app does: API_BASE_URL + "/api/v1/employees"
+            # Ingress rewrites /api/* → /* on ACI, so "/api" becomes
+            # /api/api/v1/... externally → /api/v1/... on the backend.
+            # Must NOT be the ACI private IP (browser cannot reach it).
             - name: API_BASE_URL
               value: "/api"
           resources:

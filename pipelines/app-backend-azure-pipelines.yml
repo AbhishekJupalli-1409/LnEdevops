@@ -42,6 +42,33 @@ steps:
     displayName: 'Patch: add pg/pg-hstore driver for PostgreSQL'
     workingDirectory: '$(appDir)'
 
+  # Azure Database for PostgreSQL Flexible Server requires SSL. Upstream
+  # dbConfig.js has no dialectOptions.ssl → SequelizeConnectionError 28000.
+  - script: |
+      set -euo pipefail
+      cd "$(appDir)"
+      python3 <<'PY'
+      from pathlib import Path
+      p = Path("config/dbConfig.js")
+      text = p.read_text()
+      needle = "    pool: {"
+      insert = """    dialectOptions: {
+      ssl: {
+        require: true,
+        rejectUnauthorized: false,
+      },
+    },
+    pool: {"""
+      if "dialectOptions" in text:
+          print("dialectOptions already present; skip")
+      elif needle not in text:
+          raise SystemExit("pool block not found in config/dbConfig.js — update the patch")
+      else:
+          p.write_text(text.replace(needle, insert, 1))
+          print("Patched config/dbConfig.js with SSL dialectOptions")
+      PY
+    displayName: 'Patch: enable Postgres SSL for Azure Flexible Server'
+
   - task: Docker@2
     displayName: 'Build and push backend image to ACR'
     inputs:
