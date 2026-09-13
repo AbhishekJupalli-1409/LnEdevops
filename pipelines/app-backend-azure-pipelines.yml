@@ -44,6 +44,8 @@ steps:
 
   # Azure Database for PostgreSQL Flexible Server requires SSL. Upstream
   # dbConfig.js has no dialectOptions.ssl → SequelizeConnectionError 28000.
+  # NOTE: every line under "script: |" must stay indented — bare "pool:" at
+  # column 0-4 is parsed as Azure Pipelines YAML, not Python.
   - script: |
       set -euo pipefail
       cd "$(appDir)"
@@ -52,13 +54,15 @@ steps:
       p = Path("config/dbConfig.js")
       text = p.read_text()
       needle = "    pool: {"
-      insert = """    dialectOptions: {
-      ssl: {
-        require: true,
-        rejectUnauthorized: false,
-      },
-    },
-    pool: {"""
+      insert = (
+          "    dialectOptions: {\n"
+          "      ssl: {\n"
+          "        require: true,\n"
+          "        rejectUnauthorized: false,\n"
+          "      },\n"
+          "    },\n"
+          "    pool: {"
+      )
       if "dialectOptions" in text:
           print("dialectOptions already present; skip")
       elif needle not in text:
