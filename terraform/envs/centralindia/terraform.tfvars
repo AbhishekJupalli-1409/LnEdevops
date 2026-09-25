@@ -10,7 +10,7 @@ allowed_locations      = ["centralindia", "southindia", "westindia"]
 backend_container_port = 8000
 
 # Ingress-nginx public IP (CORS WHITELIST_URLS for the ACI backend).
-frontend_origin = "http://4.224.111.37"
+frontend_origin = "http://20.204.214.15"
 
 # --- Required regardless of manage_azure_devops below: the private agent VM
 # (module.agent_vm) registers itself against this org/pool using a PAT,

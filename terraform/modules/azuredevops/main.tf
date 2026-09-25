@@ -19,7 +19,7 @@ resource "azuredevops_project" "this" {
 
 resource "azuredevops_serviceendpoint_azurerm" "subscription" {
   project_id            = azuredevops_project.this.id
-  service_endpoint_name = "acr-service-connection-arm"
+  service_endpoint_name = "acr-service-connection2-arm"
   credentials {
     serviceprincipalid  = var.sp_client_id
     serviceprincipalkey = var.sp_client_secret
@@ -31,7 +31,7 @@ resource "azuredevops_serviceendpoint_azurerm" "subscription" {
 
 resource "azuredevops_serviceendpoint_azurecr" "acr" {
   project_id             = azuredevops_project.this.id
-  service_endpoint_name  = "acr-service-connection"
+  service_endpoint_name  = "acr-service-connection2"
   resource_group         = var.acr_resource_group
   azurecr_name            = var.acr_name
   azurecr_spn_tenantid     = var.tenant_id
