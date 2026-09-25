@@ -18,7 +18,7 @@ variable "dns_prefix" {
 # Do not set this to Standard_B2s / B2s_v2 — that SKU is only for the agent VM.
 variable "node_vm_size" {
   type    = string
-  default = "Standard_D2s_v3"
+  default = "Standard_D2s_v5"
 }
 
 variable "node_count" {
