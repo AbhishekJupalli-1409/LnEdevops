@@ -73,6 +73,31 @@ steps:
       PY
     displayName: 'Patch: enable Postgres SSL for Azure Flexible Server'
 
+  # sequelize-cli reads config/config.js by default, but DB settings live in
+  # dbConfig.js — so migrations never created the employees table (42P01).
+  - script: |
+      set -euo pipefail
+      cd "$(appDir)"
+      python3 <<'PY'
+      from pathlib import Path
+      Path(".sequelizerc").write_text(
+          "const path = require('path');\n"
+          "module.exports = {\n"
+          "  config: path.resolve('config', 'dbConfig.js'),\n"
+          "  'models-path': path.resolve('models'),\n"
+          "  'seeders-path': path.resolve('seeders'),\n"
+          "  'migrations-path': path.resolve('migrations'),\n"
+          "};\n"
+      )
+      startup = Path("startup.sh")
+      text = startup.read_text()
+      text = text.replace("npm run migration\n", "npm run migration || exit 1\n")
+      startup.write_text(text)
+      print(Path(".sequelizerc").read_text())
+      print(startup.read_text())
+      PY
+    displayName: 'Patch: point sequelize-cli at dbConfig.js'
+
   - task: Docker@2
     displayName: 'Build and push backend image to ACR'
     inputs:
