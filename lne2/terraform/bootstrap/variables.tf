@@ -11,9 +11,7 @@ variable "location" {
 variable "tags" {
   type = map(string)
   default = {
-    "Department"    = "Engineering"
-    "Project Code"  = "VOTEAPP"
-    "Business Unit" = "Platform"
-    "Cost Center"   = "CC-0001"
+    "Department"   = "Engineering"
+    "Project Code" = "VOTEAPP"
   }
 }

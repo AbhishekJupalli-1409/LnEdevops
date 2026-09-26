@@ -1,9 +1,7 @@
 locals {
   tags = {
-    "Department"    = var.department
-    "Project Code"  = var.project_code
-    "Business Unit" = var.business_unit
-    "Cost Center"   = var.cost_center
+    "Department"   = var.department
+    "Project Code" = var.project_code
   }
 
   aks_node_resource_group_id = "/subscriptions/${var.subscription_id}/resourceGroups/MC_${var.resource_group_name}_${var.aks_cluster_name}_${var.location}"

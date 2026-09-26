@@ -20,7 +20,7 @@ Names used below match the YAML defaults. If you rename one, change it everywher
 | AKS | `aks-voteapp-cin` |
 | Apply environment | `voteapp-infra-production` |
 
-If the first project (lne1) is already on this same subscription, its policy assignments are still active. They require the tags `Business Unit` and `Cost Center`, and they deny a public IP on a NIC. This stack sets those two tags as well as `Department` and `Project Code`. Do not reuse `rg-empapp-centralindia` or the empapp ACR names.
+This stack requires the tags `Department` and `Project Code` on resources it creates. Do not reuse `rg-empapp-centralindia` or the empapp ACR names.
 
 ---
 

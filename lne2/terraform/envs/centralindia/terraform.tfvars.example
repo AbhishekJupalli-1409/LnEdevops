@@ -4,7 +4,4 @@ tenant_id       = "00000000-0000-0000-0000-000000000000"
 # Do not set azdo_personal_access_token here, even to "".
 # The infra pipeline passes TF_VAR_azdo_personal_access_token from the
 # secret azdoPersonalAccessToken.
-#
-# If the first project already assigned tag policies for "Business Unit"
-# and "Cost Center" on this subscription, leave those two tags in place.
-# This stack also sets Department and Project Code.
+# Required tags on every resource are Department and Project Code.

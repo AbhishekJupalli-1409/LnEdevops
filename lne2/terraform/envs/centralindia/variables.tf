@@ -102,16 +102,6 @@ variable "project_code" {
   default = "VOTEAPP"
 }
 
-variable "business_unit" {
-  type    = string
-  default = "Platform"
-}
-
-variable "cost_center" {
-  type    = string
-  default = "CC-0001"
-}
-
 variable "azdo_org_service_url" {
   type    = string
   default = "https://dev.azure.com/jupalliabhishek1409"
