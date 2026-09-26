@@ -22,6 +22,9 @@ terraform {
 }
 
 provider "azurerm" {
+  # This subscription already has the providers registered. Registering them
+  # again in parallel returns 409 ConflictingConcurrentWriteNotAllowed.
+  skip_provider_registration = true
   features {
     key_vault {
       purge_soft_delete_on_destroy    = true

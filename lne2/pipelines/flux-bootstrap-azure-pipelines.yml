@@ -1,4 +1,5 @@
-# Bootstrap Flux and point it at lne2/gitops. Must run on the private agent.
+# Bootstrap Flux and point it at gitops/. Must run on the private agent.
+# This repository root is the lne2 folder. There is no lne2/ prefix in git.
 # ACR login server, MySQL host, and the DB password are read from Azure here
 # so this file does not hard-code a registry name.
 trigger:
@@ -6,8 +7,8 @@ trigger:
     include: [main]
   paths:
     include:
-      - lne2/gitops/**
-      - lne2/pipelines/flux-bootstrap-azure-pipelines.yml
+      - gitops/**
+      - pipelines/flux-bootstrap-azure-pipelines.yml
 
 parameters:
   - name: azureServiceConnection
@@ -59,7 +60,7 @@ steps:
       flux bootstrap git \
         --url="https://dev.azure.com/${{ parameters.azdoOrg }}/${{ parameters.azdoProject }}/_git/${{ parameters.azdoRepo }}" \
         --branch=main \
-        --path=lne2/gitops/clusters/aks-centralindia \
+        --path=gitops/clusters/aks-centralindia \
         --token-auth \
         --username=azdo \
         --password="$TOKEN"
@@ -97,7 +98,7 @@ steps:
 
   - script: |
       set -euo pipefail
-      kubectl apply -f "$(Build.SourcesDirectory)/lne2/gitops/clusters/aks-centralindia/apps-kustomization.yaml"
+      kubectl apply -f "$(Build.SourcesDirectory)/gitops/clusters/aks-centralindia/apps-kustomization.yaml"
       flux reconcile source git flux-system
       flux reconcile kustomization apps --with-source
       kubectl -n voting get pods,svc,ingress

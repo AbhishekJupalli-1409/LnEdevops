@@ -1,0 +1,47 @@
+# Build the result image from the upstream sample and push it to ACR.
+# Swaps Postgres for mysql2 and keeps the page under /result.
+trigger:
+  branches:
+    include: [main]
+  paths:
+    include:
+      - patches/result/**
+      - scripts/patch-voting-app.sh
+      - pipelines/result-azure-pipelines.yml
+
+parameters:
+  - name: acrServiceConnection
+    displayName: 'ACR Docker service connection name'
+    type: string
+    default: 'voteapp-acr'
+  - name: votingAppRef
+    displayName: 'example-voting-app git ref'
+    type: string
+    default: 'master'
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+  - checkout: self
+  - bash: |
+      set -euo pipefail
+      git clone --depth 1 --branch "${{ parameters.votingAppRef }}" \
+        https://github.com/dockersamples/example-voting-app.git \
+        "$(Agent.TempDirectory)/example-voting-app"
+      bash "$(Build.SourcesDirectory)/scripts/patch-voting-app.sh" \
+        "$(Agent.TempDirectory)/example-voting-app" \
+        "$(Build.SourcesDirectory)" \
+        result
+    displayName: 'clone and patch result'
+  - task: Docker@2
+    displayName: 'build and push result'
+    inputs:
+      command: buildAndPush
+      containerRegistry: ${{ parameters.acrServiceConnection }}
+      repository: result
+      dockerfile: '$(Agent.TempDirectory)/example-voting-app/result/Dockerfile'
+      buildContext: '$(Agent.TempDirectory)/example-voting-app/result'
+      tags: |
+        $(Build.BuildId)
+        latest

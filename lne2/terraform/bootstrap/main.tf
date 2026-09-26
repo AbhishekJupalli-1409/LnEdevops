@@ -14,6 +14,9 @@ terraform {
 
 provider "azurerm" {
   features {}
+  # This subscription already has the providers registered. Registering them
+  # again in parallel returns 409 ConflictingConcurrentWriteNotAllowed.
+  skip_provider_registration = true
 }
 
 resource "azurerm_resource_group" "state" {

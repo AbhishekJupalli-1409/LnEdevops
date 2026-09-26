@@ -2,7 +2,7 @@
 
 Do the steps in order. Each step ends with **what you must see in the UI** before you continue. If that check fails, stop and fix it. Later steps fail for a confusing reason.
 
-This folder is `lne2` inside the learnandearn repo. Pipeline YAML paths start with `lne2/`. Do not point a pipeline at `lne1`.
+This repository **is** the `lne2` folder. When you push, the Git root contains `pipelines/`, `terraform/`, `patches/`, and `gitops/` directly. There is no `lne2/` prefix in Azure DevOps paths.
 
 The Azure DevOps **organization** is the only thing you create by hand. The project, pool, service connections, and variable group are also created in the Azure DevOps UI, because a pipeline cannot log in until those exist. Every Azure resource after that (resource group, VNet, NAT, ACR, AKS, MySQL, Key Vault, private endpoints, agent VM) is created by Terraform.
 
@@ -51,7 +51,7 @@ Terraform does not create the organization.
 **UI check**
 
 - The browser URL looks like `https://dev.azure.com/<org>/<project>`.
-- **Repos** shows `lne2/pipelines`, `lne2/terraform`, and `lne2/gitops`.
+- **Repos** shows `pipelines/`, `terraform/`, `patches/`, and `gitops/` at the root of the repo.
 - Write the org URL down with no project path: `https://dev.azure.com/<org>`. That value is `azdo_org_service_url`.
 
 ---
@@ -109,7 +109,7 @@ The app registration needs **Contributor** and **User Access Administrator** on 
 Terraform cannot store state in a storage account that does not exist yet. This step uses local state and creates only the state account.
 
 ```bash
-cd lne2/terraform/bootstrap
+cd terraform/bootstrap
 terraform init
 terraform apply
 terraform output
@@ -134,7 +134,7 @@ Copy `resource_group_name`, `storage_account_name`, `container_name`, and `state
 | `tfStateContainer` | no | `tfstate` |
 | `azdoPersonalAccessToken` | **yes** | the PAT from step 2 |
 
-4. Copy `lne2/terraform/envs/centralindia/terraform.tfvars.example` to `terraform.tfvars` on the machine only if you apply from the laptop. Fill `subscription_id` and `tenant_id`. Do not commit `terraform.tfvars`. The infra pipeline does not read that file for the PAT. It sets `TF_VAR_azdo_personal_access_token` from the secret above.
+4. Copy `terraform/envs/centralindia/terraform.tfvars.example` to `terraform.tfvars` on the machine only if you apply from the laptop. Fill `subscription_id` and `tenant_id`. Do not commit `terraform.tfvars`. The infra pipeline does not read that file for the PAT. It sets `TF_VAR_azdo_personal_access_token` from the secret above.
 5. If `azdo_org_service_url` in `variables.tf` is not your org, set it in `terraform.tfvars` (no trailing slash, no project name).
 
 **UI check:** Library → `voteapp-shared-vars` shows the three state variables in clear text and `azdoPersonalAccessToken` as a lock icon.
@@ -144,7 +144,7 @@ Copy `resource_group_name`, `storage_account_name`, `container_name`, and `state
 ## 7. Infra pipeline
 
 1. **Pipelines** → **New pipeline** → your repo → **Existing Azure Pipelines YAML file**.
-2. Path: `/lne2/pipelines/infra-terraform-azure-pipelines.yml`.
+2. Path: `/pipelines/infra-terraform-azure-pipelines.yml`.
 3. The parameter **Azure Resource Manager service connection name** must be exactly `voteapp-arm` (or whatever you named the connection in step 4). A wrong name fails at compile time.
 4. Save and run.
 
@@ -165,13 +165,28 @@ The Plan stage runs `terraform plan` on `ubuntu-latest`. The Apply stage waits o
 - Portal → `rg-voteapp-centralindia` → location **Central India**. Every resource shows tags `Department` and `Project Code`.
 - AKS → `aks-voteapp-cin` → **Networking** → API server access is **private**.
 - MySQL server → **Networking** shows public access **enabled** and a private endpoint. **Networking** → firewall rules is empty (no `0.0.0.0` rule). Database `voting` exists under Databases. Inside the VNet the server name resolves through `privatelink.mysql.database.azure.com` to the private endpoint. The provider in use does not let Terraform turn the public-access flag off; with no firewall rule the internet still cannot log in.
-- Key Vault → **Networking** shows a private endpoint. **Secrets** lists `mysql-admin-password`, `mysql-admin-user`, `mysql-database-name`, `mysql-fqdn`.
+- Key Vault → **Networking** shows a private endpoint. **Secrets** lists `mysql-admin-password`, `mysql-admin-user`, `mysql-database-name`, `mysql-fqdn`, and `agent-vm-ssh-private-key`.
 - Virtual machine `vm-voteapp-agent` → Networking → the NIC has a private IP in `10.20.4.0/24` and **no public IP**.
 - Agent pools → `voteapp-private-pool` → agent `vm-voteapp-agent` is **Online**.
 
 If policy assignment fails with authorization, the service principal is missing Resource Policy Contributor. Grant it, or set `enable_policy_assignments = false`, apply the rest, grant the role, set it back to `true`, and apply again.
 
 The `MC_rg-voteapp-centralindia_aks-voteapp-cin_centralindia` resource group is exempt from the tag policies. AKS creates untagged node resources there.
+
+Write the credentials file once Apply is green. The template is [CREDENTIALS_TEMPLATE.md](CREDENTIALS_TEMPLATE.md). The script fills `Notes/CREDENTIALS.md` from Terraform outputs and Key Vault. That file is gitignored.
+
+```bash
+cd terraform/envs/centralindia
+terraform init \
+  -backend-config="resource_group_name=<tfStateResourceGroup>" \
+  -backend-config="storage_account_name=<tfStateStorageAccount>" \
+  -backend-config="container_name=tfstate" \
+  -backend-config="key=voteapp.terraform.tfstate"
+cd ../../..
+bash scripts/generate-credentials-doc.sh
+```
+
+**UI check:** `Notes/CREDENTIALS.md` exists on your machine and is not in the git commit. Key Vault still shows the five secrets listed above.
 
 ---
 
@@ -190,13 +205,21 @@ The identity behind this connection needs **AcrPush** on that registry. The Azur
 
 ---
 
-## 9. Image pipeline
+## 9. Image pipelines
 
-1. New pipeline → YAML file `/lne2/pipelines/images-azure-pipelines.yml`.
-2. Parameter **ACR Docker service connection name**: `voteapp-acr`.
-3. Run it. It uses `ubuntu-latest` (the agent VM has no Docker). It clones `dockersamples/example-voting-app`, applies `lne2/patches`, and pushes three images.
+Create **three** pipelines. Each one builds one image on `ubuntu-latest` (the agent VM has no Docker). Each clones `dockersamples/example-voting-app` and applies only its own patch from `patches/` and `scripts/patch-voting-app.sh`.
 
-**UI check:** ACR → Repositories shows `vote`, `worker`, and `result`, each with tag `latest`. The pipeline log contains `patched vote` and `voting app patched for MySQL`.
+| Pipeline YAML | Image |
+|---|---|
+| `/pipelines/vote-azure-pipelines.yml` | `vote` |
+| `/pipelines/worker-azure-pipelines.yml` | `worker` |
+| `/pipelines/result-azure-pipelines.yml` | `result` |
+
+1. **Pipelines** → **New pipeline** → Existing Azure Pipelines YAML file. Repeat for each path above.
+2. Parameter **ACR Docker service connection name**: `voteapp-acr` on all three.
+3. Run all three.
+
+**UI check:** ACR → Repositories shows `vote`, `worker`, and `result`, each with tag `latest`. The vote log contains `patched vote`. The worker log contains `patched worker`. The result log contains `patched result`.
 
 ---
 
@@ -204,7 +227,7 @@ The identity behind this connection needs **AcrPush** on that registry. The Azur
 
 Run this **before** Flux. Flux creates Ingress objects that need the `nginx` ingress class.
 
-1. New pipeline → `/lne2/pipelines/nginx-ingress-azure-pipelines.yml`.
+1. New pipeline → `/pipelines/nginx-ingress-azure-pipelines.yml`.
 2. Service connection parameter: `voteapp-arm`.
 3. The pool is `voteapp-private-pool`. A Microsoft-hosted agent cannot reach the private API server.
 4. Run it.
@@ -226,16 +249,16 @@ Those URLs 404 until step 11 finishes. That is expected.
 
 ## 11. Flux pipeline
 
-1. New pipeline → `/lne2/pipelines/flux-bootstrap-azure-pipelines.yml`.
-2. Confirm the parameters: service connection `voteapp-arm`, org, project, and repo name. The repo name is the Azure DevOps repo that contains `lne2`, not `example-voting-app`.
+1. New pipeline → `/pipelines/flux-bootstrap-azure-pipelines.yml`.
+2. Confirm the parameters: service connection `voteapp-arm`, org, project, and repo name. The repo name is the Azure DevOps repo whose **root** is this folder. It is not `example-voting-app`, and the path is not prefixed with `lne2/`.
 3. Run it on `voteapp-private-pool`.
 
 The job reads the ACR login server, the MySQL hostname, and the password from Key Vault, writes ConfigMap `cluster-vars` and Secret `voting-db`, then reconciles.
 
 **UI check**
 
-- Flux pushed a commit that adds `lne2/gitops/clusters/aks-centralindia/flux-system/`.
-- Open `lne2/gitops/clusters/aks-centralindia/kustomization.yaml`. It must list both `flux-system` and `apps-kustomization.yaml`. If bootstrap left only `flux-system`, add the second line and push:
+- Flux pushed a commit that adds `gitops/clusters/aks-centralindia/flux-system/`.
+- Open `gitops/clusters/aks-centralindia/kustomization.yaml`. It must list both `flux-system` and `apps-kustomization.yaml`. If bootstrap left only `flux-system`, add the second line and push:
 
 ```yaml
 resources:

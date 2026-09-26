@@ -12,13 +12,13 @@ The sample is three programs plus Redis and a database. This platform keeps that
 | worker | `./worker` .NET | none | `LPOP`s `votes` and `INSERT`s into `votes(id, vote)`. A duplicate id becomes `UPDATE`. The worker creates the table. |
 | result | `./result` Node | 80 | Every second `SELECT vote, COUNT(id) FROM votes GROUP BY vote` and pushes the totals to the browser over Socket.IO. |
 
-The sample Docker Compose file points vote at hostname `redis` and worker/result at hostname `db` with user `postgres`. Those names are hard-coded. The image pipeline clones the repo and patches them before `docker build`:
+The sample Docker Compose file points vote at hostname `redis` and worker/result at hostname `db` with user `postgres`. Those names are hard-coded, and the pages assume they are served at `/`. This platform does not copy the application into git. Each image pipeline clones the sample and applies a small patch before `docker build`, because the sample as published will not run on this platform:
 
-- vote reads `REDIS_HOST` (default `redis`) and the form posts to `/vote/`
-- worker uses MySqlConnector and `MYSQL_HOST`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_DATABASE`
-- result uses `mysql2` with the same variables, and its page assets stay under `/result`
+- **MySQL, not Postgres.** The task asks for Azure Database for MySQL. The worker uses Npgsql and the result app uses the `pg` driver, both with a fixed connection string `postgres:postgres@db`. The patches switch those two programs to MySQL and read host, user, password, and database from environment variables. The password stays in Key Vault and is injected as a Kubernetes secret. It is not baked into the image.
+- **Paths `/vote` and `/result`.** The vote form posts to `/`. The result page loads `/stylesheets/...` and opens Socket.IO at `/socket.io`. On one ingress IP those root paths collide. The vote patch posts to `/vote/`. The result patch loads assets and the socket under `/result`. Ingress then strips that prefix before the container sees the request.
+- **Vote image target.** The sample Dockerfile's default stage for Compose is `dev`. The pipeline builds target `final`, which is gunicorn on port 80.
 
-The vote image is built with Docker target `final` (gunicorn). The Compose file's `dev` target is not used.
+The patch files live in `patches/`. The script `scripts/patch-voting-app.sh` copies them into the clone. Paths in that script are from the repository root, which is this folder when you push it to Azure DevOps.
 
 ## Request path
 
@@ -68,6 +68,6 @@ Pod CIDR `10.244.0.0/16` and service CIDR `10.21.0.0/16` sit outside the VNet ra
 2. Infra pipeline: policies, network, ACR, private AKS, MySQL + database, Key Vault, agent VM.
 3. Image pipeline: clone, patch, push `vote`, `worker`, `result` to ACR.
 4. Ingress pipeline on the private pool: Helm chart `ingress-nginx`.
-5. Flux pipeline on the private pool: bootstrap, write `cluster-vars` and `voting-db`, reconcile `lne2/gitops`.
+5. Flux pipeline on the private pool: bootstrap, write `cluster-vars` and `voting-db`, reconcile `gitops/`.
 
 Flux substitutes `${ACR_LOGIN_SERVER}`, `${MYSQL_HOST}`, `${MYSQL_USER}`, and `${MYSQL_DATABASE}` from the ConfigMap `cluster-vars` in `flux-system`. Those values are discovered with Azure CLI at pipeline time. They are not hard-coded in the YAML.

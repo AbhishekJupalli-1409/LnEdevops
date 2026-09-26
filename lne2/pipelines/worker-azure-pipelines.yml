@@ -1,0 +1,48 @@
+# Build the worker image from the upstream sample and push it to ACR.
+# Replaces the Postgres worker with the MySQL files in patches/worker.
+trigger:
+  branches:
+    include: [main]
+  paths:
+    include:
+      - patches/worker/**
+      - scripts/patch-voting-app.sh
+      - pipelines/worker-azure-pipelines.yml
+
+parameters:
+  - name: acrServiceConnection
+    displayName: 'ACR Docker service connection name'
+    type: string
+    default: 'voteapp-acr'
+  - name: votingAppRef
+    displayName: 'example-voting-app git ref'
+    type: string
+    default: 'master'
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+  - checkout: self
+  - bash: |
+      set -euo pipefail
+      git clone --depth 1 --branch "${{ parameters.votingAppRef }}" \
+        https://github.com/dockersamples/example-voting-app.git \
+        "$(Agent.TempDirectory)/example-voting-app"
+      bash "$(Build.SourcesDirectory)/scripts/patch-voting-app.sh" \
+        "$(Agent.TempDirectory)/example-voting-app" \
+        "$(Build.SourcesDirectory)" \
+        worker
+    displayName: 'clone and patch worker'
+  - task: Docker@2
+    displayName: 'build and push worker'
+    inputs:
+      command: buildAndPush
+      containerRegistry: ${{ parameters.acrServiceConnection }}
+      repository: worker
+      dockerfile: '$(Agent.TempDirectory)/example-voting-app/worker/Dockerfile'
+      buildContext: '$(Agent.TempDirectory)/example-voting-app/worker'
+      arguments: '--build-arg BUILDPLATFORM=linux/amd64 --build-arg TARGETPLATFORM=linux/amd64 --build-arg TARGETARCH=amd64'
+      tags: |
+        $(Build.BuildId)
+        latest

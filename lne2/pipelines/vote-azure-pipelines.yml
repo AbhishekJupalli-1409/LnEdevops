@@ -1,0 +1,47 @@
+# Build the vote image from the upstream sample and push it to ACR.
+# Clones the app, then applies patches/ for /vote and REDIS_HOST.
+trigger:
+  branches:
+    include: [main]
+  paths:
+    include:
+      - scripts/patch-voting-app.sh
+      - pipelines/vote-azure-pipelines.yml
+
+parameters:
+  - name: acrServiceConnection
+    displayName: 'ACR Docker service connection name'
+    type: string
+    default: 'voteapp-acr'
+  - name: votingAppRef
+    displayName: 'example-voting-app git ref'
+    type: string
+    default: 'master'
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+  - checkout: self
+  - bash: |
+      set -euo pipefail
+      git clone --depth 1 --branch "${{ parameters.votingAppRef }}" \
+        https://github.com/dockersamples/example-voting-app.git \
+        "$(Agent.TempDirectory)/example-voting-app"
+      bash "$(Build.SourcesDirectory)/scripts/patch-voting-app.sh" \
+        "$(Agent.TempDirectory)/example-voting-app" \
+        "$(Build.SourcesDirectory)" \
+        vote
+    displayName: 'clone and patch vote'
+  - task: Docker@2
+    displayName: 'build and push vote'
+    inputs:
+      command: buildAndPush
+      containerRegistry: ${{ parameters.acrServiceConnection }}
+      repository: vote
+      dockerfile: '$(Agent.TempDirectory)/example-voting-app/vote/Dockerfile'
+      buildContext: '$(Agent.TempDirectory)/example-voting-app/vote'
+      arguments: '--target final'
+      tags: |
+        $(Build.BuildId)
+        latest

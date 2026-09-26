@@ -5,8 +5,8 @@ trigger:
     include: [main]
   paths:
     include:
-      - lne2/helm/**
-      - lne2/pipelines/nginx-ingress-azure-pipelines.yml
+      - helm/**
+      - pipelines/nginx-ingress-azure-pipelines.yml
 
 parameters:
   - name: azureServiceConnection
@@ -39,7 +39,7 @@ steps:
         helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
           --namespace ingress-nginx \
           --create-namespace \
-          --values "$(Build.SourcesDirectory)/lne2/helm/nginx-ingress-values.yaml" \
+          --values "$(Build.SourcesDirectory)/helm/nginx-ingress-values.yaml" \
           --wait \
           --timeout 10m
         kubectl -n ingress-nginx get svc ingress-nginx-controller -o wide

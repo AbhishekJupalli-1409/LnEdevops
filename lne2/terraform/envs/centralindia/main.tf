@@ -100,10 +100,11 @@ module "keyvault" {
   public_network_access_enabled = var.key_vault_public_network_access_enabled
   tags                          = local.tags
   secrets = {
-    mysql-admin-password = random_password.mysql.result
-    mysql-admin-user     = var.mysql_admin_login
-    mysql-database-name  = var.mysql_database_name
-    mysql-fqdn           = module.mysql.fqdn
+    mysql-admin-password     = random_password.mysql.result
+    mysql-admin-user         = var.mysql_admin_login
+    mysql-database-name      = var.mysql_database_name
+    mysql-fqdn               = module.mysql.fqdn
+    agent-vm-ssh-private-key = module.agent.ssh_private_key_pem
   }
 }
 

@@ -5,7 +5,7 @@ metadata:
   namespace: flux-system
 spec:
   interval: 5m
-  path: ./lne2/gitops/clusters/aks-centralindia/apps
+  path: ./gitops/clusters/aks-centralindia/apps
   prune: true
   sourceRef:
     kind: GitRepository

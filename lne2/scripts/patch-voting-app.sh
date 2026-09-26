@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
-# Apply lne2 deployment patches to a fresh clone of
-# https://github.com/dockersamples/example-voting-app
-# Usage: patch-voting-app.sh <clone-dir> <lne2-root>
+# Patch a fresh clone of dockersamples/example-voting-app.
+# This repo is the Git root (the lne2 folder pushed on its own).
+# Usage: patch-voting-app.sh <clone-dir> <repo-root> [vote|worker|result|all]
 set -euo pipefail
 
 CLONE="${1:?clone dir}"
-ROOT="${2:?lne2 root}"
+ROOT="${2:?repo root}"
+ONLY="${3:-all}"
 
-python3 - "$CLONE" <<'PY'
+patch_vote() {
+  python3 - "$CLONE" <<'PY'
 import pathlib, sys
 root = pathlib.Path(sys.argv[1])
 app = root / "vote" / "app.py"
@@ -26,12 +28,17 @@ if old_action not in html_text:
 html.write_text(html_text.replace(old_action, new_action, 1))
 print("patched vote")
 PY
+}
 
-cp "$ROOT/patches/worker/Program.cs" "$CLONE/worker/Program.cs"
-cp "$ROOT/patches/worker/Worker.csproj" "$CLONE/worker/Worker.csproj"
-cp "$ROOT/patches/result/server.js" "$CLONE/result/server.js"
+patch_worker() {
+  cp "$ROOT/patches/worker/Program.cs" "$CLONE/worker/Program.cs"
+  cp "$ROOT/patches/worker/Worker.csproj" "$CLONE/worker/Worker.csproj"
+  echo "patched worker"
+}
 
-python3 - "$CLONE" <<'PY'
+patch_result() {
+  cp "$ROOT/patches/result/server.js" "$CLONE/result/server.js"
+  python3 - "$CLONE" <<'PY'
 import pathlib, sys
 root = pathlib.Path(sys.argv[1]) / "result" / "views"
 html = (root / "index.html").read_text()
@@ -48,10 +55,18 @@ if old_io not in js:
 (root / "app.js").write_text(js.replace(old_io, new_io, 1))
 print("patched result paths")
 PY
+  if ! command -v npm >/dev/null 2>&1; then
+    echo "npm is required to add mysql2 before the result image build" >&2
+    exit 1
+  fi
+  (cd "$CLONE/result" && npm install mysql2@3.11.5 --save)
+  echo "patched result"
+}
 
-if ! command -v npm >/dev/null 2>&1; then
-  echo "npm is required to add mysql2 before the result image build" >&2
-  exit 1
-fi
-(cd "$CLONE/result" && npm install mysql2@3.11.5 --save)
-echo "voting app patched for MySQL, /vote, and /result"
+case "$ONLY" in
+  vote) patch_vote ;;
+  worker) patch_worker ;;
+  result) patch_result ;;
+  all) patch_vote; patch_worker; patch_result ;;
+  *) echo "unknown component: $ONLY" >&2; exit 1 ;;
+esac

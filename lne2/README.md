@@ -8,7 +8,7 @@ Read [Notes/architecture.md](Notes/architecture.md) for the request path, then [
 |---|---|
 | Remote state bootstrap | `terraform/bootstrap` |
 | Central India stack | `terraform/envs/centralindia` |
-| Image build | `pipelines/images-azure-pipelines.yml` |
+| Image builds | `pipelines/vote-azure-pipelines.yml`, `pipelines/worker-azure-pipelines.yml`, `pipelines/result-azure-pipelines.yml` |
 | Terraform pipeline | `pipelines/infra-terraform-azure-pipelines.yml` |
 | ingress-nginx | `pipelines/nginx-ingress-azure-pipelines.yml` |
 | Flux | `pipelines/flux-bootstrap-azure-pipelines.yml` |
