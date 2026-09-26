@@ -1,0 +1,105 @@
+# Azure Pipelines - Terraform for the voting platform.
+# Runs on ubuntu-latest. Resource creation is ARM. kubectl is not used here.
+trigger:
+  branches:
+    include: [main]
+  paths:
+    include:
+      - lne2/terraform/**
+
+parameters:
+  - name: azureServiceConnection
+    displayName: 'Azure Resource Manager service connection name'
+    type: string
+    default: 'voteapp-arm'
+
+variables:
+  - group: voteapp-shared-vars
+  - name: tfWorkingDir
+    value: '$(Build.SourcesDirectory)/lne2/terraform/envs/centralindia'
+  - name: tfVersion
+    value: '1.9.5'
+
+stages:
+  - stage: Plan
+    displayName: 'terraform plan'
+    jobs:
+      - job: plan
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - task: AzureCLI@2
+            displayName: 'terraform init and plan'
+            env:
+              AZDO_PAT: $(azdoPersonalAccessToken)
+            inputs:
+              azureSubscription: ${{ parameters.azureServiceConnection }}
+              scriptType: bash
+              scriptLocation: inlineScript
+              addSpnToEnvironment: true
+              inlineScript: |
+                set -euo pipefail
+                TF_TMP=$(mktemp -d)
+                curl -fsSL -o "$TF_TMP/tf.zip" "https://releases.hashicorp.com/terraform/$(tfVersion)/terraform_$(tfVersion)_linux_amd64.zip"
+                unzip -o "$TF_TMP/tf.zip" -d "$TF_TMP"
+                sudo install -m 755 "$TF_TMP/terraform" /usr/local/bin/terraform
+                rm -rf "$TF_TMP"
+                export ARM_CLIENT_ID=$servicePrincipalId
+                export ARM_CLIENT_SECRET=$servicePrincipalKey
+                export ARM_TENANT_ID=$tenantId
+                export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+                if [ -z "${AZDO_PAT:-}" ]; then
+                  echo "##vso[task.logissue type=error]Set secret azdoPersonalAccessToken in voteapp-shared-vars."
+                  exit 1
+                fi
+                export TF_VAR_azdo_personal_access_token="$AZDO_PAT"
+                cd "$(tfWorkingDir)"
+                terraform init \
+                  -backend-config="resource_group_name=$(tfStateResourceGroup)" \
+                  -backend-config="storage_account_name=$(tfStateStorageAccount)" \
+                  -backend-config="container_name=$(tfStateContainer)" \
+                  -backend-config="key=voteapp.terraform.tfstate"
+                terraform plan -input=false -detailed-exitcode || test $? -eq 2
+
+  - stage: Apply
+    displayName: 'terraform apply'
+    dependsOn: Plan
+    jobs:
+      - deployment: apply
+        environment: 'voteapp-infra-production'
+        pool:
+          vmImage: 'ubuntu-latest'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+                - task: AzureCLI@2
+                  displayName: 'terraform apply'
+                  env:
+                    AZDO_PAT: $(azdoPersonalAccessToken)
+                  inputs:
+                    azureSubscription: ${{ parameters.azureServiceConnection }}
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    addSpnToEnvironment: true
+                    inlineScript: |
+                      set -euo pipefail
+                      TF_TMP=$(mktemp -d)
+                      curl -fsSL -o "$TF_TMP/tf.zip" "https://releases.hashicorp.com/terraform/$(tfVersion)/terraform_$(tfVersion)_linux_amd64.zip"
+                      unzip -o "$TF_TMP/tf.zip" -d "$TF_TMP"
+                      sudo install -m 755 "$TF_TMP/terraform" /usr/local/bin/terraform
+                      rm -rf "$TF_TMP"
+                      export ARM_CLIENT_ID=$servicePrincipalId
+                      export ARM_CLIENT_SECRET=$servicePrincipalKey
+                      export ARM_TENANT_ID=$tenantId
+                      export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+                      export TF_VAR_azdo_personal_access_token="$AZDO_PAT"
+                      cd "$(tfWorkingDir)"
+                      terraform init \
+                        -backend-config="resource_group_name=$(tfStateResourceGroup)" \
+                        -backend-config="storage_account_name=$(tfStateStorageAccount)" \
+                        -backend-config="container_name=$(tfStateContainer)" \
+                        -backend-config="key=voteapp.terraform.tfstate"
+                      terraform apply -input=false -auto-approve
+                      terraform output

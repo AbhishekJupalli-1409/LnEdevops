@@ -1,0 +1,9 @@
+output "resource_group_name" { value = azurerm_resource_group.this.name }
+output "acr_name" { value = module.acr.name }
+output "acr_login_server" { value = module.acr.login_server }
+output "aks_name" { value = module.aks.name }
+output "mysql_server_name" { value = module.mysql.name }
+output "mysql_fqdn" { value = module.mysql.fqdn }
+output "mysql_database_name" { value = module.mysql.database_name }
+output "key_vault_name" { value = module.keyvault.name }
+output "agent_private_ip" { value = module.agent.private_ip }

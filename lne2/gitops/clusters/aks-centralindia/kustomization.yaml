@@ -1,0 +1,7 @@
+# flux bootstrap writes flux-system/ into this folder and commits it.
+# Do not list apps/ here. Those manifests contain ${ACR_LOGIN_SERVER} and
+# ${MYSQL_HOST} and are applied by apps-kustomization.yaml after substitute.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - apps-kustomization.yaml

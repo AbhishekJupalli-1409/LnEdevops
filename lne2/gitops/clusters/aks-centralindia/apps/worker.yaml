@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: voting
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      containers:
+        - name: worker
+          image: ${ACR_LOGIN_SERVER}/worker:latest
+          imagePullPolicy: Always
+          env:
+            - name: REDIS_HOST
+              value: redis
+            - name: MYSQL_HOST
+              value: ${MYSQL_HOST}
+            - name: MYSQL_USER
+              value: ${MYSQL_USER}
+            - name: MYSQL_DATABASE
+              value: ${MYSQL_DATABASE}
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: voting-db
+                  key: password
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi

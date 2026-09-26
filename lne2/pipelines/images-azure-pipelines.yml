@@ -1,0 +1,104 @@
+# Build vote, worker, and result from the upstream sample and push to ACR.
+# The app source is cloned; this repo only holds the MySQL and path patches.
+trigger:
+  branches:
+    include: [main]
+  paths:
+    include:
+      - lne2/patches/**
+      - lne2/scripts/patch-voting-app.sh
+      - lne2/pipelines/images-azure-pipelines.yml
+
+parameters:
+  - name: acrServiceConnection
+    displayName: 'ACR Docker service connection name'
+    type: string
+    default: 'voteapp-acr'
+  - name: votingAppRef
+    displayName: 'example-voting-app git ref'
+    type: string
+    default: 'master'
+
+jobs:
+  - job: vote
+    displayName: 'image vote'
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+      - checkout: self
+      - bash: |
+          set -euo pipefail
+          git clone --depth 1 --branch "${{ parameters.votingAppRef }}" \
+            https://github.com/dockersamples/example-voting-app.git \
+            "$(Agent.TempDirectory)/example-voting-app"
+          bash "$(Build.SourcesDirectory)/lne2/scripts/patch-voting-app.sh" \
+            "$(Agent.TempDirectory)/example-voting-app" \
+            "$(Build.SourcesDirectory)/lne2"
+        displayName: 'clone and patch'
+      - task: Docker@2
+        displayName: 'build and push vote'
+        inputs:
+          command: buildAndPush
+          containerRegistry: ${{ parameters.acrServiceConnection }}
+          repository: vote
+          dockerfile: '$(Agent.TempDirectory)/example-voting-app/vote/Dockerfile'
+          buildContext: '$(Agent.TempDirectory)/example-voting-app/vote'
+          arguments: '--target final'
+          tags: |
+            $(Build.BuildId)
+            latest
+
+  - job: worker
+    displayName: 'image worker'
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+      - checkout: self
+      - bash: |
+          set -euo pipefail
+          git clone --depth 1 --branch "${{ parameters.votingAppRef }}" \
+            https://github.com/dockersamples/example-voting-app.git \
+            "$(Agent.TempDirectory)/example-voting-app"
+          bash "$(Build.SourcesDirectory)/lne2/scripts/patch-voting-app.sh" \
+            "$(Agent.TempDirectory)/example-voting-app" \
+            "$(Build.SourcesDirectory)/lne2"
+        displayName: 'clone and patch'
+      - task: Docker@2
+        displayName: 'build and push worker'
+        inputs:
+          command: buildAndPush
+          containerRegistry: ${{ parameters.acrServiceConnection }}
+          repository: worker
+          dockerfile: '$(Agent.TempDirectory)/example-voting-app/worker/Dockerfile'
+          buildContext: '$(Agent.TempDirectory)/example-voting-app/worker'
+          arguments: '--build-arg BUILDPLATFORM=linux/amd64 --build-arg TARGETPLATFORM=linux/amd64 --build-arg TARGETARCH=amd64'
+          tags: |
+            $(Build.BuildId)
+            latest
+
+  - job: result
+    displayName: 'image result'
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+      - checkout: self
+      - bash: |
+          set -euo pipefail
+          git clone --depth 1 --branch "${{ parameters.votingAppRef }}" \
+            https://github.com/dockersamples/example-voting-app.git \
+            "$(Agent.TempDirectory)/example-voting-app"
+          bash "$(Build.SourcesDirectory)/lne2/scripts/patch-voting-app.sh" \
+            "$(Agent.TempDirectory)/example-voting-app" \
+            "$(Build.SourcesDirectory)/lne2"
+        displayName: 'clone and patch'
+      - task: Docker@2
+        displayName: 'build and push result'
+        inputs:
+          command: buildAndPush
+          containerRegistry: ${{ parameters.acrServiceConnection }}
+          repository: result
+          dockerfile: '$(Agent.TempDirectory)/example-voting-app/result/Dockerfile'
+          buildContext: '$(Agent.TempDirectory)/example-voting-app/result'
+          tags: |
+            $(Build.BuildId)
+            latest

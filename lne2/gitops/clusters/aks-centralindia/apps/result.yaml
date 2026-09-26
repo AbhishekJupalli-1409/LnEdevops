@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: result
+  namespace: voting
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: result
+  template:
+    metadata:
+      labels:
+        app: result
+    spec:
+      containers:
+        - name: result
+          image: ${ACR_LOGIN_SERVER}/result:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          env:
+            - name: MYSQL_HOST
+              value: ${MYSQL_HOST}
+            - name: MYSQL_USER
+              value: ${MYSQL_USER}
+            - name: MYSQL_DATABASE
+              value: ${MYSQL_DATABASE}
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: voting-db
+                  key: password
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: result
+  namespace: voting
+spec:
+  selector:
+    app: result
+  ports:
+    - port: 80
+      targetPort: 80

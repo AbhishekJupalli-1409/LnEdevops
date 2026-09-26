@@ -1,0 +1,45 @@
+# Install ingress-nginx on the private cluster. Must run on the private agent
+# pool. A Microsoft-hosted agent cannot reach the private API server.
+trigger:
+  branches:
+    include: [main]
+  paths:
+    include:
+      - lne2/helm/**
+      - lne2/pipelines/nginx-ingress-azure-pipelines.yml
+
+parameters:
+  - name: azureServiceConnection
+    displayName: 'Azure Resource Manager service connection name'
+    type: string
+    default: 'voteapp-arm'
+
+pool:
+  name: 'voteapp-private-pool'
+
+variables:
+  - group: voteapp-shared-vars
+  - name: aksResourceGroup
+    value: 'rg-voteapp-centralindia'
+  - name: aksClusterName
+    value: 'aks-voteapp-cin'
+
+steps:
+  - task: AzureCLI@2
+    displayName: 'helm upgrade ingress-nginx'
+    inputs:
+      azureSubscription: ${{ parameters.azureServiceConnection }}
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        set -euo pipefail
+        az aks get-credentials --resource-group "$(aksResourceGroup)" --name "$(aksClusterName)" --overwrite-existing
+        helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+        helm repo update
+        helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+          --namespace ingress-nginx \
+          --create-namespace \
+          --values "$(Build.SourcesDirectory)/lne2/helm/nginx-ingress-values.yaml" \
+          --wait \
+          --timeout 10m
+        kubectl -n ingress-nginx get svc ingress-nginx-controller -o wide

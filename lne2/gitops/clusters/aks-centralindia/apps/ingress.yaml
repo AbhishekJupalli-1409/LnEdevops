@@ -1,0 +1,48 @@
+# /vote  -> vote service (rewrite strips the prefix; the form posts to /vote/)
+# /result -> result service (rewrite strips the prefix)
+# /static -> vote service (Flask url_for emits absolute /static/...)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: voting-apps
+  namespace: voting
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /vote(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: vote
+                port:
+                  number: 80
+          - path: /result(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: result
+                port:
+                  number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: vote-static
+  namespace: voting
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /static
+            pathType: Prefix
+            backend:
+              service:
+                name: vote
+                port:
+                  number: 80

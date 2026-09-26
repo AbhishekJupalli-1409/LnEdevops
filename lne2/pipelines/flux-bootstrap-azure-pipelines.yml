@@ -1,0 +1,104 @@
+# Bootstrap Flux and point it at lne2/gitops. Must run on the private agent.
+# ACR login server, MySQL host, and the DB password are read from Azure here
+# so this file does not hard-code a registry name.
+trigger:
+  branches:
+    include: [main]
+  paths:
+    include:
+      - lne2/gitops/**
+      - lne2/pipelines/flux-bootstrap-azure-pipelines.yml
+
+parameters:
+  - name: azureServiceConnection
+    displayName: 'Azure Resource Manager service connection name'
+    type: string
+    default: 'voteapp-arm'
+  - name: azdoOrg
+    displayName: 'Azure DevOps organization name'
+    type: string
+    default: 'jupalliabhishek1409'
+  - name: azdoProject
+    displayName: 'Azure DevOps project name'
+    type: string
+    default: 'learnandearn'
+  - name: azdoRepo
+    displayName: 'Azure DevOps git repo name'
+    type: string
+    default: 'learnandearn'
+
+pool:
+  name: 'voteapp-private-pool'
+
+variables:
+  - group: voteapp-shared-vars
+  - name: aksResourceGroup
+    value: 'rg-voteapp-centralindia'
+  - name: aksClusterName
+    value: 'aks-voteapp-cin'
+
+steps:
+  - task: AzureCLI@2
+    displayName: 'Get AKS credentials'
+    inputs:
+      azureSubscription: ${{ parameters.azureServiceConnection }}
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        set -euo pipefail
+        az aks get-credentials --resource-group "$(aksResourceGroup)" --name "$(aksClusterName)" --overwrite-existing
+
+  - script: |
+      set -euo pipefail
+      TOKEN="$(azdoPersonalAccessToken)"
+      if [ -z "$TOKEN" ]; then
+        echo "##vso[task.logissue type=error]Set secret azdoPersonalAccessToken with Code Read in voteapp-shared-vars."
+        exit 1
+      fi
+      flux check --pre
+      flux bootstrap git \
+        --url="https://dev.azure.com/${{ parameters.azdoOrg }}/${{ parameters.azdoProject }}/_git/${{ parameters.azdoRepo }}" \
+        --branch=main \
+        --path=lne2/gitops/clusters/aks-centralindia \
+        --token-auth \
+        --username=azdo \
+        --password="$TOKEN"
+    displayName: 'flux bootstrap'
+
+  - task: AzureCLI@2
+    displayName: 'Write cluster-vars and the database secret'
+    inputs:
+      azureSubscription: ${{ parameters.azureServiceConnection }}
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        set -euo pipefail
+        RG="$(aksResourceGroup)"
+        ACR=$(az acr list -g "$RG" --query "[0].loginServer" -o tsv)
+        MYSQL_HOST=$(az mysql flexible-server list -g "$RG" --query "[0].fullyQualifiedDomainName" -o tsv)
+        KV=$(az keyvault list -g "$RG" --query "[0].name" -o tsv)
+        MYSQL_USER=$(az keyvault secret show --vault-name "$KV" --name mysql-admin-user --query value -o tsv)
+        MYSQL_DATABASE=$(az keyvault secret show --vault-name "$KV" --name mysql-database-name --query value -o tsv)
+        MYSQL_PASSWORD=$(az keyvault secret show --vault-name "$KV" --name mysql-admin-password --query value -o tsv)
+        if [ -z "$ACR" ] || [ -z "$MYSQL_HOST" ] || [ -z "$MYSQL_PASSWORD" ]; then
+          echo "ACR, MySQL, or the Key Vault password was empty." >&2
+          exit 1
+        fi
+        kubectl create namespace voting --dry-run=client -o yaml | kubectl apply -f -
+        kubectl -n flux-system create configmap cluster-vars \
+          --from-literal=ACR_LOGIN_SERVER="$ACR" \
+          --from-literal=MYSQL_HOST="$MYSQL_HOST" \
+          --from-literal=MYSQL_USER="$MYSQL_USER" \
+          --from-literal=MYSQL_DATABASE="$MYSQL_DATABASE" \
+          --dry-run=client -o yaml | kubectl apply -f -
+        kubectl -n voting create secret generic voting-db \
+          --from-literal=password="$MYSQL_PASSWORD" \
+          --dry-run=client -o yaml | kubectl apply -f -
+
+  - script: |
+      set -euo pipefail
+      kubectl apply -f "$(Build.SourcesDirectory)/lne2/gitops/clusters/aks-centralindia/apps-kustomization.yaml"
+      flux reconcile source git flux-system
+      flux reconcile kustomization apps --with-source
+      kubectl -n voting get pods,svc,ingress
+    displayName: 'Reconcile Flux apps'
