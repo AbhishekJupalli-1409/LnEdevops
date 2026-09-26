@@ -129,15 +129,23 @@ Copy `resource_group_name`, `storage_account_name`, `container_name`, and `state
 
 | Name | Secret? | Value |
 |---|---|---|
-| `tfStateResourceGroup` | no | resource group from step 5 |
-| `tfStateStorageAccount` | no | storage account from step 5 |
-| `tfStateContainer` | no | `tfstate` |
 | `azdoPersonalAccessToken` | **yes** | the PAT from step 2 |
+
+The state account is fixed in the infra pipeline. Do not point it at another storage account.
+
+| Setting | Value |
+|---|---|
+| Subscription | `0b6312f9-7bd8-4826-85aa-c805a64c18d4` (`lne.azure5`) |
+| Tenant | `d032994e-e52c-4d44-bc79-9fd88e88ad02` |
+| State resource group | `rg-voteapp-tfstate-cin` |
+| State storage account | `tfstatevote3gwpva` |
+| State container | `tfstate` |
+| State key | `voteapp.terraform.tfstate` |
 
 4. Copy `terraform/envs/centralindia/terraform.tfvars.example` to `terraform.tfvars` on the machine only if you apply from the laptop. Fill `subscription_id` and `tenant_id`. Do not commit `terraform.tfvars`. The infra pipeline does not read that file for the PAT. It sets `TF_VAR_azdo_personal_access_token` from the secret above.
 5. If `azdo_org_service_url` in `variables.tf` is not your org, set it in `terraform.tfvars` (no trailing slash, no project name).
 
-**UI check:** Library → `voteapp-shared-vars` shows the three state variables in clear text and `azdoPersonalAccessToken` as a lock icon.
+**UI check:** Library → `voteapp-shared-vars` shows `azdoPersonalAccessToken` as a lock icon.
 
 ---
 
@@ -178,8 +186,8 @@ Write the credentials file once Apply is green. The template is [CREDENTIALS_TEM
 ```bash
 cd terraform/envs/centralindia
 terraform init \
-  -backend-config="resource_group_name=<tfStateResourceGroup>" \
-  -backend-config="storage_account_name=<tfStateStorageAccount>" \
+  -backend-config="resource_group_name=rg-voteapp-tfstate-cin" \
+  -backend-config="storage_account_name=tfstatevote3gwpva" \
   -backend-config="container_name=tfstate" \
   -backend-config="key=voteapp.terraform.tfstate"
 cd ../../..

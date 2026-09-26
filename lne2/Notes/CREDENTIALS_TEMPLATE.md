@@ -7,8 +7,8 @@ After a successful infra apply, from a machine that can read the state storage a
 ```bash
 cd terraform/envs/centralindia
 terraform init \
-  -backend-config="resource_group_name=<tfStateResourceGroup>" \
-  -backend-config="storage_account_name=<tfStateStorageAccount>" \
+  -backend-config="resource_group_name=rg-voteapp-tfstate-cin" \
+  -backend-config="storage_account_name=tfstatevote3gwpva" \
   -backend-config="container_name=tfstate" \
   -backend-config="key=voteapp.terraform.tfstate"
 cd ../../..

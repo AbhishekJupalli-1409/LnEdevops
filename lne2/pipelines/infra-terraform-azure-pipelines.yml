@@ -19,6 +19,14 @@ variables:
     value: '$(Build.SourcesDirectory)/terraform/envs/centralindia'
   - name: tfVersion
     value: '1.9.5'
+  - name: azureSubscriptionId
+    value: '0b6312f9-7bd8-4826-85aa-c805a64c18d4'
+  - name: tfStateResourceGroup
+    value: 'rg-voteapp-tfstate-cin'
+  - name: tfStateStorageAccount
+    value: 'tfstatevote3gwpva'
+  - name: tfStateContainer
+    value: 'tfstate'
 
 stages:
   - stage: Plan
@@ -45,9 +53,17 @@ stages:
                 sudo install -m 755 "$TF_TMP/terraform" /usr/local/bin/terraform
                 rm -rf "$TF_TMP"
                 export ARM_CLIENT_ID=$servicePrincipalId
-                export ARM_CLIENT_SECRET=$servicePrincipalKey
                 export ARM_TENANT_ID=$tenantId
-                export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+                az account set --subscription "$(azureSubscriptionId)"
+                export ARM_SUBSCRIPTION_ID="$(azureSubscriptionId)"
+                # voteapp-arm is a federated connection (az login --federated-token).
+                # There is no client secret. Terraform must use the same OIDC token.
+                if [ -n "${idToken:-}" ]; then
+                  export ARM_USE_OIDC=true
+                  export ARM_OIDC_TOKEN=$idToken
+                else
+                  export ARM_CLIENT_SECRET=$servicePrincipalKey
+                fi
                 if [ -z "${AZDO_PAT:-}" ]; then
                   echo "##vso[task.logissue type=error]Set secret azdoPersonalAccessToken in voteapp-shared-vars."
                   exit 1
@@ -91,9 +107,15 @@ stages:
                       sudo install -m 755 "$TF_TMP/terraform" /usr/local/bin/terraform
                       rm -rf "$TF_TMP"
                       export ARM_CLIENT_ID=$servicePrincipalId
-                      export ARM_CLIENT_SECRET=$servicePrincipalKey
                       export ARM_TENANT_ID=$tenantId
-                      export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+                      az account set --subscription "$(azureSubscriptionId)"
+                      export ARM_SUBSCRIPTION_ID="$(azureSubscriptionId)"
+                      if [ -n "${idToken:-}" ]; then
+                        export ARM_USE_OIDC=true
+                        export ARM_OIDC_TOKEN=$idToken
+                      else
+                        export ARM_CLIENT_SECRET=$servicePrincipalKey
+                      fi
                       export TF_VAR_azdo_personal_access_token="$AZDO_PAT"
                       cd "$(tfWorkingDir)"
                       terraform init \
