@@ -399,6 +399,19 @@ Open these in a browser. Replace the IP with yours.
 
 ## 15. Credentials sheet (optional)
 
+```bash
+cd ~/learnandearn/terraform/envs/centralindia
+
+terraform init -reconfigure \
+  -backend-config="resource_group_name=rg-empapp-tfstate-cin" \
+  -backend-config="storage_account_name=tfstateemp6yg6h7" \
+  -backend-config="container_name=tfstate" \
+  -backend-config="key=centralindia.terraform.tfstate"
+
+cd ~/learnandearn
+bash ./scripts/generate-credentials-doc.sh
+```
+
 From `terraform/envs/centralindia` after a successful apply:
 
 ```bash
